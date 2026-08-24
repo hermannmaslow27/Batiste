@@ -6,7 +6,12 @@ import authConfig from "@/auth.config";
 const { auth } = NextAuth(authConfig);
 
 /** Hosts under which a first label is treated as a tenant subdomain. */
-const ROOT_DOMAINS = ["batiste.app", "lvh.me", "localhost"];
+const ROOT_DOMAINS = [
+  "batiste.app",
+  "lvh.me",
+  "localhost",
+  "batiste-five.vercel.app",
+];
 
 function resolveSubdomain(hostname: string): string | null {
   const host = hostname.split(":")[0];
@@ -37,6 +42,7 @@ function pickLocale(request: NextRequest): string {
 export default auth((request) => {
   const { pathname, search } = request.nextUrl;
 
+  // Bypasser les routes système et statiques
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
@@ -47,7 +53,7 @@ export default auth((request) => {
     return NextResponse.next();
   }
 
-  // 1. Tenant resolution: a subdomain always renders the public site.
+  // 1. Détection et réécriture de sous-domaine tenant
   const subdomain = resolveSubdomain(request.headers.get("host") ?? "");
   if (subdomain) {
     const url = request.nextUrl.clone();
@@ -55,7 +61,7 @@ export default auth((request) => {
     return NextResponse.rewrite(url);
   }
 
-  // 2. Locale prefix for every application route.
+  // 2. Traitement des locales pour l'application principale
   const segments = pathname.split("/").filter(Boolean);
   const hasLocale =
     segments.length > 0 && (LOCALES as readonly string[]).includes(segments[0]);
@@ -73,6 +79,7 @@ export default auth((request) => {
     return response;
   }
 
+  // 3. Protection des routes privées
   const isPrivate =
     segments[1] === "dashboard" ||
     segments[1] === "onboarding" ||
@@ -84,6 +91,7 @@ export default auth((request) => {
     return NextResponse.redirect(login);
   }
 
+  // 4. Redirection si déjà authentifié sur /login ou /register
   const isAuthRoute = segments[1] === "login" || segments[1] === "register";
   if (isAuthRoute && request.auth?.user) {
     const dashboard = request.nextUrl.clone();
