@@ -41,19 +41,53 @@ export function formatDateTime(date: Date | string | null, locale = "fr-FR") {
   }).format(new Date(date));
 }
 
-/** Very small in-memory sliding window rate limiter. */
-const buckets = new Map<string, { count: number; resetAt: number }>();
+/**
+ * Rate limiter avec Redis (Upstash) si UPSTASH_REDIS_REST_URL est configuré,
+ * sinon fallback en mémoire (dev uniquement — non fiable en serverless multi-instance).
+ */
+const memBuckets = new Map<string, { count: number; resetAt: number }>();
 
-export function rateLimit(key: string, max = 10, windowMs = 60_000): boolean {
+function rateLimitMemory(key: string, max: number, windowMs: number): boolean {
   const now = Date.now();
-  const bucket = buckets.get(key);
+  const bucket = memBuckets.get(key);
   if (!bucket || now > bucket.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    memBuckets.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }
   if (bucket.count >= max) return false;
   bucket.count += 1;
   return true;
+}
+
+async function rateLimitRedis(
+  key: string,
+  max: number,
+  windowMs: number,
+): Promise<boolean> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return rateLimitMemory(key, max, windowMs);
+
+  const windowSec = Math.ceil(windowMs / 1000);
+  const res = await fetch(`${url}/pipeline`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify([
+      ["INCR", key],
+      ["EXPIRE", key, windowSec, "NX"],
+    ]),
+  });
+  if (!res.ok) return true; // fail open
+  const data = (await res.json()) as [{ result: number }, unknown];
+  return data[0].result <= max;
+}
+
+export async function rateLimit(
+  key: string,
+  max = 10,
+  windowMs = 60_000,
+): Promise<boolean> {
+  return rateLimitRedis(key, max, windowMs);
 }
 
 export const FEATURES = ["blog", "catalog", "quote", "booking"] as const;

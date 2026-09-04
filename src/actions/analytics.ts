@@ -23,8 +23,8 @@ export async function getAnalyticsSummary(
 
   const [totals] = await db
     .select({
-      totalViews: sql<number>`count(*)::int`,
-      uniqueVisitors: sql<number>`count(distinct ${analyticsEvents.visitorId})::int`,
+      totalViews: sql<number>`count(*)`,
+      uniqueVisitors: sql<number>`count(distinct ${analyticsEvents.visitorId})`,
     })
     .from(analyticsEvents)
     .where(
@@ -35,7 +35,7 @@ export async function getAnalyticsSummary(
     );
 
   const topPages = await db
-    .select({ path: analyticsEvents.path, views: sql<number>`count(*)::int` })
+    .select({ path: analyticsEvents.path, views: sql<number>`count(*)` })
     .from(analyticsEvents)
     .where(
       and(
@@ -49,8 +49,8 @@ export async function getAnalyticsSummary(
 
   const dailyRows = await db
     .select({
-      date: sql<string>`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`,
-      views: sql<number>`count(*)::int`,
+      date: sql<string>`strftime('%Y-%m-%d', ${analyticsEvents.createdAt}, 'unixepoch')`,
+      views: sql<number>`count(*)`,
     })
     .from(analyticsEvents)
     .where(
@@ -59,8 +59,8 @@ export async function getAnalyticsSummary(
         gte(analyticsEvents.createdAt, since),
       ),
     )
-    .groupBy(sql`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`)
-    .orderBy(sql`to_char(${analyticsEvents.createdAt}, 'YYYY-MM-DD')`);
+    .groupBy(sql`strftime('%Y-%m-%d', ${analyticsEvents.createdAt}, 'unixepoch')`)
+    .orderBy(sql`strftime('%Y-%m-%d', ${analyticsEvents.createdAt}, 'unixepoch')`);
 
   return {
     totalViews: totals?.totalViews ?? 0,
@@ -70,7 +70,6 @@ export async function getAnalyticsSummary(
   };
 }
 
-/** Appelé depuis le site public pour tracker une visite. */
 export async function trackPageView(
   subdomain: string,
   path: string,

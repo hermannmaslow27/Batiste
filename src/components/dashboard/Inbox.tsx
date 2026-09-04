@@ -6,6 +6,7 @@ import { updateSubmissionStatusAction } from "@/actions/catalog";
 import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
 import { useI18n } from "@/i18n/client";
 import { cn, formatDateTime } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 export interface InboxItem {
   id: string;
@@ -19,6 +20,7 @@ const FILTERS = ["all", "new", "read", "archived"] as const;
 
 export default function Inbox({ submissions }: { submissions: InboxItem[] }) {
   const { locale, t } = useI18n();
+  const router = useRouter();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
   const [pending, startTransition] = useTransition();
 
@@ -33,11 +35,13 @@ export default function Inbox({ submissions }: { submissions: InboxItem[] }) {
     (item) => filter === "all" || item.status === filter,
   );
 
-  const update = (id: string, status: "new" | "read" | "archived") =>
+   const update = (id: string, status: "new" | "read" | "archived") =>
     startTransition(async () => {
       const result = await updateSubmissionStatusAction(id, status);
-      if (result.ok) toast.success(t.inbox.statusUpdated);
-      else toast.error(t.common.genericError);
+      if (result.ok) {
+        toast.success(t.inbox.statusUpdated);
+        router.refresh(); // ✅
+      } else toast.error(t.common.genericError);
     });
 
   return (

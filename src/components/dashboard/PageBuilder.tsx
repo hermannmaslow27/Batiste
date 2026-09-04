@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   addBlockAction,
@@ -60,6 +61,7 @@ export default function PageBuilder({
   features,
 }: Props) {
   const { locale, t } = useI18n();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [language, setLanguage] = useState(
     languages.includes(defaultLanguage)
@@ -78,6 +80,20 @@ export default function PageBuilder({
   const [blocks, setBlocks] = useState<BuilderBlock[]>(
     activePage?.blocks ?? [],
   );
+
+  // ✅ FIX: resynchronise activePageId/blocks quand `pages` change (nouveau
+  // fetch serveur après revalidatePath), sans quoi le builder reste figé sur
+  // les données du premier rendu tant qu'on ne clique pas ailleurs.
+  useEffect(() => {
+    const stillExists = pages.some((p) => p.id === activePageId);
+    const nextPage = stillExists
+      ? pages.find((p) => p.id === activePageId)!
+      : (pages.find((p) => p.language === language) ?? null);
+    setActivePageId(nextPage?.id ?? null);
+    setBlocks(nextPage?.blocks ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages]);
+
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [view, setView] = useState<"structure" | "preview">("structure");
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -86,6 +102,7 @@ export default function PageBuilder({
   const dragIndex = useRef<number | null>(null);
   const selectedBlock =
     blocks.find((block) => block.id === selectedBlockId) ?? null;
+
   const run = (
     fn: () => Promise<{ ok: boolean; error?: string }>,
     message?: string,
@@ -94,8 +111,10 @@ export default function PageBuilder({
       const result = await fn();
       if (result.ok) {
         if (message) toast.success(message);
+        router.refresh(); // ✅ force le refetch du Server Component parent
       } else toast.error(t.common.genericError);
     });
+
   const selectPage = (page: BuilderPage) => {
     setActivePageId(page.id);
     setBlocks(page.blocks);
@@ -114,6 +133,7 @@ export default function PageBuilder({
     );
     void updateBlockContentAction(id, content).then((result) => {
       if (!result.ok) toast.error(t.common.genericError);
+      else router.refresh();
     });
   };
   const drop = (target: number) => {
@@ -144,6 +164,7 @@ export default function PageBuilder({
     if (selectedBlockId === block.id) setSelectedBlockId(null);
     run(() => deleteBlockAction(block.id), t.pages.blockDeleted);
   };
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">

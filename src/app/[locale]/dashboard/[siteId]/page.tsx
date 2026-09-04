@@ -1,7 +1,4 @@
 import Link from "next/link";
-import { and, desc, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { blogPosts, formSubmissions, pages, products } from "@/db/schema";
 import { requireSiteAccess } from "@/lib/guards";
 import { getMessages, normalizeLocale } from "@/i18n/messages";
 import {
@@ -15,6 +12,7 @@ import {
 } from "@/components/ui";
 import { formatDateTime } from "@/lib/utils";
 import SiteStatusToggle from "@/components/dashboard/SiteStatusToggle";
+import { getOverviewStats, getLatestSubmissions } from "./_actions/overview";
 
 export default async function OverviewPage({
   params,
@@ -26,41 +24,11 @@ export default async function OverviewPage({
   const t = getMessages(locale);
   const { site, features } = await requireSiteAccess(siteId, locale);
 
-  const [pageRows, productRows, postRows] = await Promise.all([
-    db
-      .select({ value: sql<number>`count(*)::int` })
-      .from(pages)
-      .where(eq(pages.siteId, siteId)),
-    db
-      .select({ value: sql<number>`count(*)::int` })
-      .from(products)
-      .where(eq(products.siteId, siteId)),
-    db
-      .select({ value: sql<number>`count(*)::int` })
-      .from(blogPosts)
-      .where(eq(blogPosts.siteId, siteId)),
-  ]);
-
-  const pageCount = pageRows[0]?.value ?? 0;
-  const productCount = productRows[0]?.value ?? 0;
-  const postCount = postRows[0]?.value ?? 0;
-
-  const [unread] = await db
-    .select({ value: sql<number>`count(*)::int` })
-    .from(formSubmissions)
-    .where(
-      and(
-        eq(formSubmissions.siteId, siteId),
-        eq(formSubmissions.status, "new"),
-      ),
-    );
-
-  const latest = await db
-    .select()
-    .from(formSubmissions)
-    .where(eq(formSubmissions.siteId, siteId))
-    .orderBy(desc(formSubmissions.createdAt))
-    .limit(5);
+  const [{ pageCount, productCount, postCount, unreadCount }, latest] =
+    await Promise.all([
+      getOverviewStats(siteId),
+      getLatestSubmissions(siteId),
+    ]);
 
   const base = `/${locale}/dashboard/${siteId}`;
 
@@ -80,7 +48,7 @@ export default async function OverviewPage({
         {features.blog && (
           <StatTile label={t.dashboard.statPosts} value={postCount} />
         )}
-        <StatTile label={t.dashboard.statMessages} value={unread?.value ?? 0} />
+        <StatTile label={t.dashboard.statMessages} value={unreadCount} />
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">

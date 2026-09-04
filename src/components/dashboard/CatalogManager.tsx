@@ -7,6 +7,7 @@ import { Button, EmptyState, PageHeader } from "@/components/ui";
 import { useI18n } from "@/i18n/client";
 import ProductEditor, { type ProductDraft } from "./ProductEditor";
 import ProductTable from "./ProductTable";
+import { useRouter } from "next/navigation";
 
 export interface ManagedProduct {
   id: string;
@@ -41,6 +42,7 @@ export default function CatalogManager({
   const { locale, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const openCreate = () => {
@@ -91,6 +93,7 @@ export default function CatalogManager({
           draft.productId ? t.catalog.productUpdated : t.catalog.productCreated,
         );
         setOpen(false);
+        router.refresh();
       } else {
         toast.error(t.common.genericError);
       }

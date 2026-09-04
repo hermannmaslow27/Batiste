@@ -45,47 +45,19 @@ export default function SiteShell({
   const base = `/${locale}/dashboard/${site.id}`;
   const [collapsed, setCollapsed] = useState(false);
 
-  const items: SiteNavItem[] = [
-    { href: base, label: t.nav.overview, icon: LayoutDashboard, show: true },
-    { href: `${base}/pages`, label: t.nav.pages, icon: FileText, show: true },
-    {
-      href: `${base}/catalog`,
-      label: t.nav.catalog,
-      icon: Palette,
-      show: features.catalog,
-    },
-    {
-      href: `${base}/blog`,
-      label: t.nav.blog,
-      icon: BookOpen,
-      show: features.blog,
-    },
-    {
-      href: `${base}/testimonials`,
-      label: t.nav.testimonials,
-      icon: MessageSquareQuote,
-      show: true,
-    },
-    {
-      href: `${base}/analytics`,
-      label: t.nav.analytics,
-      icon: BarChart2,
-      show: true,
-    },
-    {
-      href: `${base}/inbox`,
-      label: t.nav.inbox,
-      icon: Inbox,
-      show: true,
-      badge: unreadCount,
-    },
-    {
-      href: `${base}/settings`,
-      label: t.nav.settings,
-      icon: Settings,
-      show: true,
-    },
-  ].filter((item) => item.show);
+  const rawItems = [
+  { href: base, label: t.nav.overview, icon: LayoutDashboard, show: true },
+  { href: `${base}/pages`, label: t.nav.pages, icon: FileText, show: true },
+  { href: `${base}/catalog`, label: t.nav.catalog, icon: Palette, show: features.catalog },
+  { href: `${base}/blog`, label: t.nav.blog, icon: BookOpen, show: features.blog },
+  { href: `${base}/testimonials`, label: t.nav.testimonials, icon: MessageSquareQuote, show: true },
+  { href: `${base}/analytics`, label: t.nav.analytics, icon: BarChart2, show: true },
+  { href: `${base}/inbox`, label: t.nav.inbox, icon: Inbox, show: true, badge: unreadCount },
+  { href: `${base}/settings`, label: t.nav.settings, icon: Settings, show: true },
+];
+const items: SiteNavItem[] = rawItems
+  .filter((item) => item.show)
+  .map(({ show, ...item }) => item);
   const currentItem = items.find((item) => item.href === pathname);
 
   const sidebarRef = useRef<HTMLElement>(null);

@@ -1,54 +1,45 @@
 import {
-  pgTable,
+  sqliteTable,
   text,
-  timestamp,
-  uuid,
-  varchar,
   integer,
-  boolean,
-  jsonb,
   index,
   uniqueIndex,
   primaryKey,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
-// ============================================================================
-// Phase 1 : Base de données - Schéma complet
-// ============================================================================
-
-// 1. USERS - Les comptes qui se connectent à Batiste
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  // Champs requis par l'adaptateur Auth.js.
-  name: varchar("name", { length: 200 }),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  emailVerified: timestamp("email_verified"),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name"),
+  email: text("email").notNull().unique(),
+  emailVerified: integer("email_verified", { mode: "timestamp" }),
   image: text("image"),
-  // Profil métier Batiste conservé en complément du modèle Auth.js.
-  passwordHash: varchar("password_hash", { length: 255 }),
-  firstName: varchar("first_name", { length: 100 }),
-  lastName: varchar("last_name", { length: 100 }),
+  passwordHash: text("password_hash"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   avatarUrl: text("avatar_url"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`)
+    .$onUpdate(() => new Date()),
 });
 
-// Modèle officiel Auth.js, avec des noms SQL explicites et cohérents avec le reste du projet.
-export const accounts = pgTable(
+export const accounts = sqliteTable(
   "accounts",
   {
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    type: varchar("type", { length: 50 }).notNull(),
-    provider: varchar("provider", { length: 100 }).notNull(),
-    providerAccountId: varchar("provider_account_id", {
-      length: 255,
-    }).notNull(),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
     refresh_token: text("refresh_token"),
     access_token: text("access_token"),
     expires_at: integer("expires_at"),
-    token_type: varchar("token_type", { length: 50 }),
+    token_type: text("token_type"),
     scope: text("scope"),
     id_token: text("id_token"),
     session_state: text("session_state"),
@@ -59,67 +50,70 @@ export const accounts = pgTable(
   ],
 );
 
-export const sessions = pgTable(
+export const sessions = sqliteTable(
   "sessions",
   {
-    sessionToken: varchar("session_token", { length: 255 }).primaryKey(),
-    userId: uuid("user_id")
+    sessionToken: text("session_token").primaryKey(),
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expires: timestamp("expires").notNull(),
+    expires: integer("expires", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("sessions_user_idx").on(table.userId)],
 );
 
-export const verificationTokens = pgTable(
+export const verificationTokens = sqliteTable(
   "verification_tokens",
   {
-    identifier: varchar("identifier", { length: 255 }).notNull(),
-    token: varchar("token", { length: 255 }).notNull(),
-    expires: timestamp("expires").notNull(),
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: integer("expires", { mode: "timestamp" }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.identifier, table.token] })],
 );
 
-// 2. THEMES - Liste des thèmes disponibles
-export const themes = pgTable("themes", {
-  id: varchar("id", { length: 50 }).primaryKey(), // ex: "minimal", "warm", "corporate", "bold"
-  name: varchar("name", { length: 100 }).notNull(),
+export const themes = sqliteTable("themes", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
   description: text("description"),
-  colors: jsonb("colors").notNull(), // { primary, secondary, background, surface, text, muted }
-  fonts: jsonb("fonts").notNull(), // { heading, body }
-  borderRadius: varchar("border_radius", { length: 20 }).default("0.5rem"),
-  isActive: boolean("is_active").default(true),
+  colors: text("colors", { mode: "json" }).notNull(),
+  fonts: text("fonts", { mode: "json" }).notNull(),
+  borderRadius: text("border_radius").default("0.5rem"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   previewImage: text("preview_image"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
 });
 
-// 3. SITES - Chaque site client
-export const sites = pgTable(
+export const sites = sqliteTable(
   "sites",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    ownerId: uuid("owner_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    ownerId: text("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    name: varchar("name", { length: 200 }).notNull(),
-    subdomain: varchar("subdomain", { length: 100 }).notNull().unique(),
-    themeId: varchar("theme_id", { length: 50 })
+    name: text("name").notNull(),
+    subdomain: text("subdomain").notNull().unique(),
+    themeId: text("theme_id")
       .notNull()
       .references(() => themes.id, { onDelete: "restrict" }),
-    defaultLanguage: varchar("default_language", { length: 10 })
-      .notNull()
-      .default("fr"),
-    supportedLanguages: jsonb("supported_languages").notNull(), // ["fr", "en"]
-    status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, published
-    customDomain: varchar("custom_domain", { length: 255 }),
+    defaultLanguage: text("default_language").notNull().default("fr"),
+    supportedLanguages: text("supported_languages", { mode: "json" }).notNull(),
+    status: text("status").notNull().default("draft"),
+    customDomain: text("custom_domain"),
     logoUrl: text("logo_url"),
     faviconUrl: text("favicon_url"),
-    seoTitle: varchar("seo_title", { length: 200 }),
+    seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
     seoImage: text("seo_image"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("sites_subdomain_idx").on(table.subdomain),
@@ -127,19 +121,20 @@ export const sites = pgTable(
   ],
 );
 
-// 4. SITE_MEMBERS - Qui a accès à quel site
-export const siteMembers = pgTable(
+export const siteMembers = sqliteTable(
   "site_members",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: varchar("role", { length: 20 }).notNull(), // owner, admin, editor
-    invitedAt: timestamp("invited_at").defaultNow().notNull(),
+    role: text("role").notNull(),
+    invitedAt: integer("invited_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
   },
   (table) => [
     uniqueIndex("site_members_site_user_unique").on(table.siteId, table.userId),
@@ -148,25 +143,29 @@ export const siteMembers = pgTable(
   ],
 );
 
-// 5. PAGES - Les pages d'un site
-export const pages = pgTable(
+export const pages = sqliteTable(
   "pages",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    slug: varchar("slug", { length: 200 }).notNull(),
-    language: varchar("language", { length: 10 }).notNull().default("fr"),
-    title: varchar("title", { length: 200 }).notNull(),
-    status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, published
-    seoTitle: varchar("seo_title", { length: 200 }),
+    slug: text("slug").notNull(),
+    language: text("language").notNull().default("fr"),
+    title: text("title").notNull(),
+    status: text("status").notNull().default("draft"),
+    seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
     seoKeywords: text("seo_keywords"),
-    isHomepage: boolean("is_homepage").default(false),
-    sortOrder: integer("sort_order").default(0),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    isHomepage: integer("is_homepage", { mode: "boolean" }).notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     uniqueIndex("pages_site_slug_language_unique").on(
@@ -178,20 +177,24 @@ export const pages = pgTable(
   ],
 );
 
-// 6. BLOCKS - Le contenu de chaque page
-export const blocks = pgTable(
+export const blocks = sqliteTable(
   "blocks",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    pageId: uuid("page_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    pageId: text("page_id")
       .notNull()
       .references(() => pages.id, { onDelete: "cascade" }),
-    type: varchar("type", { length: 50 }).notNull(), // hero, carousel, card_grid, cta, form, testimonials, rich_text, product_grid, contact_form, booking_form
+    type: text("type").notNull(),
     position: integer("position").notNull(),
-    content: jsonb("content").notNull(),
-    isVisible: boolean("is_visible").default(true),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    content: text("content", { mode: "json" }).notNull(),
+    isVisible: integer("is_visible", { mode: "boolean" }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("blocks_page_idx").on(table.pageId),
@@ -199,25 +202,29 @@ export const blocks = pgTable(
   ],
 );
 
-// 7. PRODUCTS - Le catalogue universel d'un site
-export const products = pgTable(
+export const products = sqliteTable(
   "products",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    name: varchar("name", { length: 200 }).notNull(),
+    name: text("name").notNull(),
     description: text("description"),
-    price: integer("price"), // en centimes
-    currency: varchar("currency", { length: 3 }).default("EUR"),
-    images: jsonb("images"), // array of URLs
-    category: varchar("category", { length: 100 }),
-    customAttributes: jsonb("custom_attributes"), // { taille: "M", couleur: "Rouge", ... }
-    status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, published
-    sortOrder: integer("sort_order").default(0),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    price: integer("price"),
+    currency: text("currency").default("EUR"),
+    images: text("images", { mode: "json" }),
+    category: text("category"),
+    customAttributes: text("custom_attributes", { mode: "json" }),
+    status: text("status").notNull().default("draft"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("products_site_idx").on(table.siteId),
@@ -225,23 +232,22 @@ export const products = pgTable(
   ],
 );
 
-// 8. FORM_SUBMISSIONS - Réponses aux formulaires
-export const formSubmissions = pgTable(
+export const formSubmissions = sqliteTable(
   "form_submissions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    formType: varchar("form_type", { length: 50 }).notNull(), // contact, quote, booking, custom
-    pageId: uuid("page_id").references(() => pages.id, {
-      onDelete: "set null",
-    }),
-    data: jsonb("data").notNull(),
-    status: varchar("status", { length: 20 }).default("new").notNull(), // new, read, archived
-    ipAddress: varchar("ip_address", { length: 45 }),
+    formType: text("form_type").notNull(),
+    pageId: text("page_id").references(() => pages.id, { onDelete: "set null" }),
+    data: text("data", { mode: "json" }).notNull(),
+    status: text("status").notNull().default("new"),
+    ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
   },
   (table) => [
     index("form_submissions_site_idx").on(table.siteId),
@@ -249,124 +255,123 @@ export const formSubmissions = pgTable(
   ],
 );
 
-// 9. MEDIA - Fichiers uploadés
-export const media = pgTable(
+export const media = sqliteTable(
   "media",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
-    provider: varchar("provider", { length: 30 })
-      .notNull()
-      .default("cloudinary"),
-    providerAssetId: varchar("provider_asset_id", { length: 500 }),
-    filename: varchar("filename", { length: 255 }).notNull(),
-    mimeType: varchar("mime_type", { length: 100 }).notNull(),
-    size: integer("size").notNull(), // en bytes
+    provider: text("provider").notNull().default("cloudinary"),
+    providerAssetId: text("provider_asset_id"),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    size: integer("size").notNull(),
     width: integer("width"),
     height: integer("height"),
-    alt: varchar("alt", { length: 255 }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    alt: text("alt"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
   },
   (table) => [index("media_site_idx").on(table.siteId)],
 );
 
-// 10. FEATURE_FLAGS - Modules activés par site
-export const featureFlags = pgTable(
+export const featureFlags = sqliteTable(
   "feature_flags",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    feature: varchar("feature", { length: 50 }).notNull(), // blog, catalog, quote, booking
-    isEnabled: boolean("is_enabled").default(false),
-    config: jsonb("config"), // config spécifique au module
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    feature: text("feature").notNull(),
+    isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(false),
+    config: text("config", { mode: "json" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("feature_flags_site_idx").on(table.siteId),
-    uniqueIndex("feature_flags_site_feature_unique").on(
-      table.siteId,
-      table.feature,
-    ),
+    uniqueIndex("feature_flags_site_feature_unique").on(table.siteId, table.feature),
   ],
 );
 
-// 11. ANALYTICS EVENTS - Visites légères par site
-export const analyticsEvents = pgTable(
+export const analyticsEvents = sqliteTable(
   "analytics_events",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    path: varchar("path", { length: 500 }).notNull(),
-    visitorId: varchar("visitor_id", { length: 100 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    path: text("path").notNull(),
+    visitorId: text("visitor_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
   },
   (table) => [
-    index("analytics_events_site_created_idx").on(
-      table.siteId,
-      table.createdAt,
-    ),
-    index("analytics_events_site_visitor_idx").on(
-      table.siteId,
-      table.visitorId,
-    ),
+    index("analytics_events_site_created_idx").on(table.siteId, table.createdAt),
+    index("analytics_events_site_visitor_idx").on(table.siteId, table.visitorId),
   ],
 );
 
-// 12. TESTIMONIALS - Avis clients avec modération
-export const testimonials = pgTable(
+export const testimonials = sqliteTable(
   "testimonials",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    authorName: varchar("author_name", { length: 120 }).notNull(),
-    role: varchar("role", { length: 120 }),
+    authorName: text("author_name").notNull(),
+    role: text("role"),
     quote: text("quote").notNull(),
-    rating: integer("rating").default(5).notNull(),
-    status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, approved, rejected
-    source: varchar("source", { length: 20 }).default("dashboard").notNull(), // dashboard, public
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    rating: integer("rating").notNull().default(5),
+    status: text("status").notNull().default("pending"),
+    source: text("source").notNull().default("dashboard"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
-  (table) => [
-    index("testimonials_site_status_idx").on(table.siteId, table.status),
-  ],
+  (table) => [index("testimonials_site_status_idx").on(table.siteId, table.status)],
 );
 
-// Blog posts (module Blog)
-export const blogPosts = pgTable(
+export const blogPosts = sqliteTable(
   "blog_posts",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    siteId: uuid("site_id")
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
       .notNull()
       .references(() => sites.id, { onDelete: "cascade" }),
-    slug: varchar("slug", { length: 200 }).notNull(),
-    language: varchar("language", { length: 10 }).notNull().default("fr"),
-    title: varchar("title", { length: 300 }).notNull(),
-    content: text("content").notNull(), // contenu riche HTML/Markdown
+    slug: text("slug").notNull(),
+    language: text("language").notNull().default("fr"),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
     excerpt: text("excerpt"),
     coverImage: text("cover_image"),
-    category: varchar("category", { length: 100 }),
-    tags: jsonb("tags"), // array de strings
-    authorId: uuid("author_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, published
-    publishedAt: timestamp("published_at"),
-    seoTitle: varchar("seo_title", { length: 200 }),
+    category: text("category"),
+    tags: text("tags", { mode: "json" }),
+    authorId: text("author_id").references(() => users.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("draft"),
+    publishedAt: integer("published_at", { mode: "timestamp" }),
+    seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
   },
   (table) => [
     index("blog_posts_site_idx").on(table.siteId),
@@ -379,7 +384,120 @@ export const blogPosts = pgTable(
   ],
 );
 
-// Export types
+export const plans = sqliteTable("plans", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  priceMonthly: integer("price_monthly").notNull().default(0),
+  priceYearly: integer("price_yearly").notNull().default(0),
+  stripePriceMonthlyId: text("stripe_price_monthly_id"),
+  stripePriceYearlyId: text("stripe_price_yearly_id"),
+  maxSites: integer("max_sites").notNull().default(1),
+  maxPagesPerSite: integer("max_pages_per_site").notNull().default(5),
+  maxProductsPerSite: integer("max_products_per_site").notNull().default(10),
+  maxPostsPerSite: integer("max_posts_per_site").notNull().default(10),
+  maxMembersPerSite: integer("max_members_per_site").notNull().default(1),
+  canUseCustomDomain: integer("can_use_custom_domain", { mode: "boolean" }).notNull().default(false),
+  canRemoveBranding: integer("can_remove_branding", { mode: "boolean" }).notNull().default(false),
+  canUseBooking: integer("can_use_booking", { mode: "boolean" }).notNull().default(false),
+  canUseAnalytics: integer("can_use_analytics", { mode: "boolean" }).notNull().default(false),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export const subscriptions = sqliteTable(
+  "subscriptions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => plans.id, { onDelete: "restrict" }),
+    status: text("status").notNull().default("active"),
+    stripeCustomerId: text("stripe_customer_id"),
+    stripeSubscriptionId: text("stripe_subscription_id"),
+    currentPeriodStart: integer("current_period_start", { mode: "timestamp" }),
+    currentPeriodEnd: integer("current_period_end", { mode: "timestamp" }),
+    cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" }).notNull().default(false),
+    trialEnd: integer("trial_end", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("subscriptions_user_idx").on(table.userId),
+    index("subscriptions_stripe_customer_idx").on(table.stripeCustomerId),
+    index("subscriptions_stripe_sub_idx").on(table.stripeSubscriptionId),
+  ],
+);
+
+export const siteInvitations = sqliteTable(
+  "site_invitations",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
+      .notNull()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("editor"),
+    token: text("token").notNull().unique(),
+    invitedBy: text("invited_by").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    acceptedAt: integer("accepted_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [
+    index("site_invitations_site_idx").on(table.siteId),
+    index("site_invitations_token_idx").on(table.token),
+  ],
+);
+
+export const siteThemeOverrides = sqliteTable(
+  "site_theme_overrides",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    siteId: text("site_id")
+      .notNull()
+      .unique()
+      .references(() => sites.id, { onDelete: "cascade" }),
+    colorPrimary: text("color_primary"),
+    colorOnPrimary: text("color_on_primary"),
+    colorBackground: text("color_background"),
+    colorSurface: text("color_surface"),
+    colorText: text("color_text"),
+    colorMuted: text("color_muted"),
+    colorBorder: text("color_border"),
+    colorAccent: text("color_accent"),
+    fontHeading: text("font_heading"),
+    fontBody: text("font_body"),
+    borderRadius: text("border_radius"),
+    customCss: text("custom_css"),
+    navLinks: text("nav_links", { mode: "json" }),
+    footerText: text("footer_text"),
+    footerLinks: text("footer_links", { mode: "json" }),
+    socialLinks: text("social_links", { mode: "json" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("site_theme_overrides_site_idx").on(table.siteId)],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Account = typeof accounts.$inferSelect;
@@ -400,10 +518,19 @@ export type FormSubmission = typeof formSubmissions.$inferSelect;
 export type NewFormSubmission = typeof formSubmissions.$inferInsert;
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
-export type FeatureFlag = typeof featureFlags.$inferInsert;
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+export type NewFeatureFlag = typeof featureFlags.$inferInsert;
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type NewBlogPost = typeof blogPosts.$inferInsert;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
 export type Testimonial = typeof testimonials.$inferSelect;
 export type NewTestimonial = typeof testimonials.$inferInsert;
+export type Plan = typeof plans.$inferSelect;
+export type NewPlan = typeof plans.$inferInsert;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;
+export type SiteInvitation = typeof siteInvitations.$inferSelect;
+export type NewSiteInvitation = typeof siteInvitations.$inferInsert;
+export type SiteThemeOverride = typeof siteThemeOverrides.$inferSelect;
+export type NewSiteThemeOverride = typeof siteThemeOverrides.$inferInsert;

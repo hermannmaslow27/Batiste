@@ -1,9 +1,7 @@
-import { eq, sql, and } from "drizzle-orm";
-import { db } from "@/db";
-import { formSubmissions, siteMembers, sites } from "@/db/schema";
 import { requireSiteAccess } from "@/lib/guards";
 import { normalizeLocale } from "@/i18n/messages";
 import SiteShell from "@/components/dashboard/SiteShell";
+import { getUserSiteMemberships, getUnreadCount } from "./_actions/layout";
 
 export default async function SiteLayout({
   children,
@@ -16,21 +14,10 @@ export default async function SiteLayout({
   const locale = normalizeLocale(rawLocale);
   const { site, user, features } = await requireSiteAccess(siteId, locale);
 
-  const memberships = await db
-    .select({ site: sites })
-    .from(siteMembers)
-    .innerJoin(sites, eq(siteMembers.siteId, sites.id))
-    .where(eq(siteMembers.userId, user.id));
-
-  const [unread] = await db
-    .select({ value: sql<number>`count(*)::int` })
-    .from(formSubmissions)
-    .where(
-      and(
-        eq(formSubmissions.siteId, siteId),
-        eq(formSubmissions.status, "new"),
-      ),
-    );
+  const [memberSites, unreadCount] = await Promise.all([
+    getUserSiteMemberships(user.id),
+    getUnreadCount(siteId),
+  ]);
 
   return (
     <SiteShell
@@ -40,14 +27,14 @@ export default async function SiteLayout({
         subdomain: site.subdomain,
         status: site.status,
       }}
-      sites={memberships.map((row) => ({
-        id: row.site.id,
-        name: row.site.name,
-        subdomain: row.site.subdomain,
-        status: row.site.status,
+      sites={memberSites.map((s) => ({
+        id: s.id,
+        name: s.name,
+        subdomain: s.subdomain,
+        status: s.status,
       }))}
       features={features}
-      unreadCount={unread?.value ?? 0}
+      unreadCount={unreadCount}
     >
       {children}
     </SiteShell>

@@ -285,12 +285,14 @@ export async function reorderBlocksAction(
 
     // Never trust ids coming from the client.
     const safeOrder = orderedIds.filter((id) => ownedIds.has(id));
-    for (let index = 0; index < safeOrder.length; index++) {
-      await db
-        .update(blocks)
-        .set({ position: index, updatedAt: new Date() })
-        .where(eq(blocks.id, safeOrder[index]));
-    }
+    await Promise.all(
+      safeOrder.map((id, index) =>
+        db
+          .update(blocks)
+          .set({ position: index, updatedAt: new Date() })
+          .where(eq(blocks.id, id)),
+      ),
+    );
 
     revalidateAll(site.subdomain);
     return { ok: true };

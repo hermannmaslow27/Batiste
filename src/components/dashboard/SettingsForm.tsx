@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteSiteAction, updateSiteSettingsAction } from "@/actions/sites";
@@ -54,6 +54,21 @@ export default function SettingsForm({
     status: site.status as "draft" | "published",
   });
   const [flags, setFlags] = useState<Record<string, boolean>>(features);
+
+  useEffect(() => {
+  setForm({
+    name: site.name,
+    themeId: site.themeId,
+    defaultLanguage: site.defaultLanguage as Locale,
+    supportedLanguages: site.supportedLanguages as Locale[],
+    seoTitle: site.seoTitle ?? "",
+    seoDescription: site.seoDescription ?? "",
+    status: site.status as "draft" | "published",
+  });
+  setFlags(features);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [site, features]);
+
   const save = () =>
     startTransition(async () => {
       const result = await updateSiteSettingsAction({

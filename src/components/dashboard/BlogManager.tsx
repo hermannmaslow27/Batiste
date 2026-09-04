@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n/client";
 import type { Locale } from "@/i18n/messages";
 import BlogPostList from "./BlogPostList";
 import BlogPostEditor, { type PostDraft } from "./BlogPostEditor";
+import { useRouter } from "next/navigation";
 
 export interface ManagedPost {
   id: string;
@@ -46,6 +47,7 @@ export default function BlogManager({
     language: defaultLanguage,
     status: "draft" as "draft" | "published",
   });
+    const router = useRouter();
 
   const openCreate = () => {
     setDraft({
@@ -91,6 +93,7 @@ export default function BlogManager({
       if (result.ok) {
         toast.success(draft.postId ? t.blog.postUpdated : t.blog.postCreated);
         setOpen(false);
+        router.refresh();
       } else toast.error(t.common.genericError);
     });
 

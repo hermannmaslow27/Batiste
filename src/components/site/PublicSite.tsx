@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { headers } from "next/headers";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   blocks,
@@ -21,8 +22,22 @@ import {
   publicLanguagePrefix,
   publicPath,
 } from "@/lib/public-site";
+import { trackPageView } from "@/actions/analytics";
+import AnalyticsTracker from "@/components/site/AnalyticsTracker";
+import CatalogClient from "@/components/site/CatalogClient";
 
 const ROOT_DOMAINS = ["batiste.app", "lvh.me", "localhost"];
+
+function safeImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
 
 async function loadSite(subdomain: string) {
   const rows = await db
@@ -38,16 +53,20 @@ export async function buildSiteMetadata(subdomain: string): Promise<Metadata> {
   const data = await loadSite(subdomain);
   if (!data) return { title: "Batiste" };
   const title = data.site.seoTitle || data.site.name;
+  const siteUrl = `https://${subdomain}.batiste.app`;
   return {
     title,
     description: data.site.seoDescription ?? undefined,
+    metadataBase: new URL(siteUrl),
     openGraph: {
       title,
       description: data.site.seoDescription ?? undefined,
       type: "website",
       siteName: data.site.name,
+      images: data.site.seoImage ? [data.site.seoImage] : undefined,
     },
     twitter: { card: "summary_large_image", title },
+    icons: data.site.faviconUrl ? { icon: data.site.faviconUrl } : undefined,
   };
 }
 
@@ -191,53 +210,56 @@ export default async function PublicSite({
     ? posts.find((p) => p.slug === blogSlug)
     : undefined;
 
-  const languageTargets = await Promise.all(
-    supported.map(async (code) => {
-      const targetPrefix = publicLanguagePrefix(root, code, defaultLanguage);
-      if (!segments.length) return publicPath(targetPrefix);
-      if (segments[0] === "catalog") return publicPath(targetPrefix, "catalog");
-      if (segments[0] === "blog") {
-        if (segments.length === 1) return publicPath(targetPrefix, "blog");
-        const targetPost = await db
-          .select({ slug: blogPosts.slug })
-          .from(blogPosts)
-          .where(
-            and(
-              eq(blogPosts.siteId, site.id),
-              eq(blogPosts.slug, segments[1]),
-              eq(blogPosts.language, code),
-              eq(blogPosts.status, "published"),
-            ),
-          )
-          .limit(1);
-        return targetPost[0]
-          ? publicPath(targetPrefix, `blog/${targetPost[0].slug}`)
-          : publicPath(targetPrefix, "blog");
-      }
-      const targetPage = await db
-        .select({ slug: pages.slug })
+  // Fix N+1 : une seule requête groupée pour tous les slugs de pages par langue
+  const allPageSlugs = await (supported.length > 1
+    ? db
+        .select({ slug: pages.slug, language: pages.language })
         .from(pages)
         .where(
           and(
             eq(pages.siteId, site.id),
-            eq(pages.slug, route),
-            eq(pages.language, code),
             eq(pages.status, "published"),
+            inArray(pages.language, supported),
           ),
         )
-        .limit(1);
-      return targetPage[0]
-        ? publicPath(targetPrefix, targetPage[0].slug)
-        : publicPath(targetPrefix);
-    }),
-  );
+    : Promise.resolve([]));
+
+  const slugsByLang = new Map<string, string[]>();
+  for (const row of allPageSlugs) {
+    const arr = slugsByLang.get(row.language) ?? [];
+    arr.push(row.slug);
+    slugsByLang.set(row.language, arr);
+  }
+
+  const languageTargets = supported.map((code) => {
+    const targetPrefix = publicLanguagePrefix(root, code, defaultLanguage);
+    if (!segments.length) return publicPath(targetPrefix);
+    if (segments[0] === "catalog") return publicPath(targetPrefix, "catalog");
+    if (segments[0] === "blog") {
+      if (segments.length === 1) return publicPath(targetPrefix, "blog");
+      const slugs = slugsByLang.get(code) ?? [];
+      return slugs.includes(segments[1])
+        ? publicPath(targetPrefix, `blog/${segments[1]}`)
+        : publicPath(targetPrefix, "blog");
+    }
+    const slugs = slugsByLang.get(code) ?? [];
+    return slugs.includes(route)
+      ? publicPath(targetPrefix, route)
+      : publicPath(targetPrefix);
+  });
 
   const categories = Array.from(
     new Set(publicProducts.map((p) => p.category).filter(Boolean)),
   ) as string[];
 
+  const logoUrl = safeImageUrl(site.logoUrl);
+  const currentPath = `/${route}`;
+
   return (
     <div className="site-root min-h-screen" style={themeStyle(theme)}>
+      {/* Tracker analytics côté client — ne bloque pas le rendu */}
+      <AnalyticsTracker subdomain={subdomain} path={currentPath} />
+
       {/* Nav */}
       <header
         className="site-surface sticky top-0 z-40 border-b"
@@ -246,9 +268,19 @@ export default async function PublicSite({
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-4">
           <Link
             href={href("")}
-            className="site-heading text-[17px] font-semibold"
+            className="flex items-center gap-2 site-heading text-[17px] font-semibold"
           >
-            {site.name}
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt={site.name}
+                width={32}
+                height={32}
+                className="h-8 w-auto object-contain"
+              />
+            ) : (
+              site.name
+            )}
           </Link>
           <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13.5px]">
             {navPages.map((page) => (
@@ -330,13 +362,16 @@ export default async function PublicSite({
               {formatDate(singlePost.publishedAt, `${locale}-FR`)}
               {singlePost.category ? ` · ${singlePost.category}` : ""}
             </p>
-            {singlePost.coverImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={singlePost.coverImage}
-                alt=""
-                className="mt-8 w-full rounded-xl object-cover"
-              />
+            {safeImageUrl(singlePost.coverImage) && (
+              <div className="relative mt-8 h-64 w-full overflow-hidden rounded-xl sm:h-80">
+                <Image
+                  src={safeImageUrl(singlePost.coverImage)!}
+                  alt={singlePost.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 768px"
+                />
+              </div>
             )}
             <div className="mt-8 space-y-4 text-[15.5px] leading-[1.8]">
               {singlePost.content
@@ -360,13 +395,16 @@ export default async function PublicSite({
                     href={href(`blog/${post.slug}`)}
                     className="site-card overflow-hidden"
                   >
-                    {post.coverImage && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={post.coverImage}
-                        alt=""
-                        className="h-40 w-full object-cover"
-                      />
+                    {safeImageUrl(post.coverImage) && (
+                      <div className="relative h-40 w-full">
+                        <Image
+                          src={safeImageUrl(post.coverImage)!}
+                          alt={post.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
+                      </div>
                     )}
                     <div className="p-5">
                       <p className="site-muted text-[12px]">
@@ -387,92 +425,12 @@ export default async function PublicSite({
             )}
           </section>
         ) : isCatalog ? (
-          <section className="mx-auto max-w-5xl px-6 py-16">
-            <h1 className="site-heading text-[32px] font-semibold">
-              {t.catalog.title}
-            </h1>
-            {categories.length > 0 && (
-              <div className="mt-6 flex flex-wrap items-center gap-2 text-[13px]">
-                <span className="site-muted">{t.publicSite.filters} :</span>
-                {categories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="rounded-full px-3 py-1"
-                    style={{ background: "var(--c-surface)" }}
-                  >
-                    {cat}
-                  </span>
-                ))}
-              </div>
-            )}
-            {publicProducts.length === 0 ? (
-              <p className="site-muted mt-8 text-sm">
-                {t.publicSite.noProducts}
-              </p>
-            ) : (
-              <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {publicProducts.map((product) => {
-                  const image = Array.isArray(product.images)
-                    ? String(product.images[0] ?? "")
-                    : "";
-                  const attributes =
-                    (product.customAttributes as Record<string, string>) ?? {};
-                  return (
-                    <article
-                      key={product.id}
-                      className="site-card overflow-hidden"
-                    >
-                      {image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={image}
-                          alt={product.name}
-                          className="h-44 w-full object-cover"
-                        />
-                      ) : (
-                        <div
-                          className="h-44 w-full"
-                          style={{ background: "var(--c-surface)" }}
-                        />
-                      )}
-                      <div className="p-5">
-                        <h2 className="site-heading text-[16px] font-semibold">
-                          {product.name}
-                        </h2>
-                        {product.description && (
-                          <p className="site-muted mt-1.5 text-[13.5px] leading-relaxed">
-                            {product.description}
-                          </p>
-                        )}
-                        {Object.keys(attributes).length > 0 && (
-                          <dl className="mt-3 space-y-1 text-[12.5px]">
-                            {Object.entries(attributes).map(([key, value]) => (
-                              <div
-                                key={key}
-                                className="flex justify-between gap-3"
-                              >
-                                <dt className="site-muted">{key}</dt>
-                                <dd>{String(value)}</dd>
-                              </div>
-                            ))}
-                          </dl>
-                        )}
-                        {product.price !== null && (
-                          <p className="mt-3 text-[15px] font-semibold">
-                            {formatPrice(
-                              product.price,
-                              product.currency ?? "EUR",
-                              `${locale}-FR`,
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <CatalogClient
+            products={publicProducts}
+            categories={categories}
+            locale={locale}
+            t={t}
+          />
         ) : currentPage ? (
           pageBlocks.length === 0 ? (
             <section className="mx-auto max-w-3xl px-6 py-24 text-center">

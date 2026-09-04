@@ -1,28 +1,18 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
-}
-
-// Requis pour supporter les WebSockets côté serveur sous Node.js
-neonConfig.webSocketConstructor = ws;
+const databaseUrl = process.env.DATABASE_URL ?? "file:./local.db";
+const filename = databaseUrl.replace(/^file:/, "");
 
 const globalForDb = globalThis as typeof globalThis & {
-  __arenaNextJsPostgresqlPool?: Pool;
+  __batisteSqlite?: InstanceType<typeof Database>;
 };
 
-export const pool =
-  globalForDb.__arenaNextJsPostgresqlPool ??
-  new Pool({
-    connectionString: databaseUrl,
-  });
+const sqlite = globalForDb.__batisteSqlite ?? new Database(filename);
+sqlite.pragma("foreign_keys = ON");
 
 if (process.env.NODE_ENV !== "production") {
-  globalForDb.__arenaNextJsPostgresqlPool = pool;
+  globalForDb.__batisteSqlite = sqlite;
 }
 
-export const db = drizzle(pool);
+export const db = drizzle(sqlite);

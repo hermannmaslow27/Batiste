@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { submitPublicFormAction } from "@/actions/catalog";
 import { formatPrice } from "@/lib/utils";
@@ -39,6 +40,17 @@ const str = (value: unknown, fallback = "") =>
 
 const list = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+
+function safeUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value) return null;
+  try {
+    const p = new URL(value);
+    if (p.protocol !== "https:" && p.protocol !== "http:") return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
 
 function blockHref(value: unknown, prefix: string | undefined) {
   const target = str(value, "#");
@@ -93,12 +105,7 @@ function PublicFormFields({
   formType,
   ctx,
 }: {
-  fields: {
-    label: string;
-    type: string;
-    options?: string;
-    required?: boolean;
-  }[];
+  fields: { label: string; type: string; options?: string; required?: boolean }[];
   submitText: string;
   successMessage: string;
   formType: "contact" | "quote" | "booking";
@@ -226,16 +233,20 @@ function renderBlock(
   switch (type) {
     case "hero": {
       const align = str(content.alignment, "center");
-      const image = str(content.imageUrl);
+      const image = safeUrl(content.imageUrl);
       return (
         <section
           className="relative overflow-hidden"
           style={{ background: "var(--c-surface)" }}
         >
           {image && (
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url(${image})` }}
+            <Image
+              src={image}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="100vw"
+              priority
             />
           )}
           {image && content.overlay !== false && (
@@ -279,9 +290,7 @@ function renderBlock(
       const align = str(content.alignment, "left");
       return (
         <Section>
-          <div
-            className={`mx-auto max-w-3xl ${align === "center" ? "text-center" : ""}`}
-          >
+          <div className={`mx-auto max-w-3xl ${align === "center" ? "text-center" : ""}`}>
             {str(content.title) && (
               <Heading className="mb-5" data-anim="up">
                 {str(content.title)}
@@ -327,13 +336,16 @@ function renderBlock(
                 data-delay={String(index * 0.08)}
                 className="site-card overflow-hidden transition-transform hover:-translate-y-1 hover:shadow-lg"
               >
-                {str(card.imageUrl) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={str(card.imageUrl)}
-                    alt=""
-                    className="h-44 w-full object-cover"
-                  />
+                {safeUrl(card.imageUrl) && (
+                  <div className="relative h-44 w-full">
+                    <Image
+                      src={safeUrl(card.imageUrl)!}
+                      alt={str(card.title)}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    />
+                  </div>
                 )}
                 <div className="p-5">
                   <h3 className="site-heading text-[17px] font-semibold">
@@ -363,10 +375,7 @@ function renderBlock(
       return (
         <section
           className="px-6 py-16 text-center sm:py-20"
-          style={{
-            background: "var(--c-primary)",
-            color: "var(--c-on-primary)",
-          }}
+          style={{ background: "var(--c-primary)", color: "var(--c-on-primary)" }}
         >
           <div className="mx-auto max-w-2xl">
             <h2
@@ -376,11 +385,7 @@ function renderBlock(
               {str(content.title)}
             </h2>
             {str(content.description) && (
-              <p
-                data-anim="fade"
-                data-delay="0.1"
-                className="mt-3 text-[15px] opacity-85"
-              >
+              <p data-anim="fade" data-delay="0.1" className="mt-3 text-[15px] opacity-85">
                 {str(content.description)}
               </p>
             )}
@@ -424,11 +429,12 @@ function renderBlock(
                   &ldquo;{str(item.quote)}&rdquo;
                 </blockquote>
                 <figcaption className="mt-5 flex items-center gap-3">
-                  {str(item.avatarUrl) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={str(item.avatarUrl)}
-                      alt=""
+                  {safeUrl(item.avatarUrl) ? (
+                    <Image
+                      src={safeUrl(item.avatarUrl)!}
+                      alt={str(item.name)}
+                      width={36}
+                      height={36}
                       className="size-9 rounded-full object-cover"
                     />
                   ) : (
@@ -464,24 +470,22 @@ function renderBlock(
                 key={index}
                 className="site-card w-[300px] shrink-0 snap-start overflow-hidden"
               >
-                {str(slide.imageUrl) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={str(slide.imageUrl)}
-                    alt=""
-                    className="h-48 w-full object-cover"
-                  />
+                {safeUrl(slide.imageUrl) ? (
+                  <div className="relative h-48 w-full">
+                    <Image
+                      src={safeUrl(slide.imageUrl)!}
+                      alt={str(slide.title)}
+                      fill
+                      className="object-cover"
+                      sizes="300px"
+                    />
+                  </div>
                 ) : (
-                  <div
-                    className="h-48 w-full"
-                    style={{ background: "var(--c-border)" }}
-                  />
+                  <div className="h-48 w-full" style={{ background: "var(--c-border)" }} />
                 )}
                 <figcaption className="p-4">
                   <p className="text-[14px] font-medium">{str(slide.title)}</p>
-                  <p className="site-muted mt-1 text-[13px]">
-                    {str(slide.description)}
-                  </p>
+                  <p className="site-muted mt-1 text-[13px]">{str(slide.description)}</p>
                 </figcaption>
               </figure>
             ))}
@@ -511,15 +515,13 @@ function renderBlock(
             </Heading>
           )}
           {items.length === 0 ? (
-            <p className="site-muted text-center text-sm">
-              {t.publicSite.noProducts}
-            </p>
+            <p className="site-muted text-center text-sm">{t.publicSite.noProducts}</p>
           ) : (
             <div className={`grid gap-5 ${gridClass}`}>
               {items.map((product, idx) => {
-                const image = Array.isArray(product.images)
-                  ? String(product.images[0] ?? "")
-                  : "";
+                const imageUrl = safeUrl(
+                  Array.isArray(product.images) ? product.images[0] : null,
+                );
                 return (
                   <article
                     key={product.id}
@@ -527,38 +529,31 @@ function renderBlock(
                     data-delay={String(idx * 0.07)}
                     className="site-card overflow-hidden transition-transform hover:-translate-y-1 hover:shadow-lg"
                   >
-                    {image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={image}
-                        alt={product.name}
-                        className="h-44 w-full object-cover"
-                      />
+                    {imageUrl ? (
+                      <div className="relative h-44 w-full">
+                        <Image
+                          src={imageUrl}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
+                      </div>
                     ) : (
-                      <div
-                        className="h-44 w-full"
-                        style={{ background: "var(--c-surface)" }}
-                      />
+                      <div className="h-44 w-full" style={{ background: "var(--c-surface)" }} />
                     )}
                     <div className="p-5">
-                      <h3 className="site-heading text-[16px] font-semibold">
-                        {product.name}
-                      </h3>
+                      <h3 className="site-heading text-[16px] font-semibold">{product.name}</h3>
                       {product.description && (
                         <p className="site-muted mt-1.5 line-clamp-3 text-[13.5px] leading-relaxed">
                           {product.description}
                         </p>
                       )}
-                      {content.showPrice !== false &&
-                        product.price !== null && (
-                          <p className="mt-3 text-[15px] font-semibold">
-                            {formatPrice(
-                              product.price,
-                              product.currency ?? "EUR",
-                              `${ctx.locale}-FR`,
-                            )}
-                          </p>
-                        )}
+                      {content.showPrice !== false && product.price !== null && (
+                        <p className="mt-3 text-[15px] font-semibold">
+                          {formatPrice(product.price, product.currency ?? "EUR", `${ctx.locale}-FR`)}
+                        </p>
+                      )}
                     </div>
                   </article>
                 );
@@ -614,17 +609,9 @@ function renderBlock(
             </div>
             <PublicFormFields
               fields={fields}
-              submitText={str(
-                content.submitText,
-                isBooking ? t.publicSite.bookNow : t.publicSite.send,
-              )}
-              successMessage={str(
-                content.successMessage,
-                t.publicSite.messageSent,
-              )}
-              formType={
-                type === "form" ? "quote" : isBooking ? "booking" : "contact"
-              }
+              submitText={str(content.submitText, isBooking ? t.publicSite.bookNow : t.publicSite.send)}
+              successMessage={str(content.successMessage, t.publicSite.messageSent)}
+              formType={type === "form" ? "quote" : isBooking ? "booking" : "contact"}
               ctx={ctx}
             />
           </div>

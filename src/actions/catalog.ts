@@ -263,7 +263,7 @@ export async function submitPublicFormAction(
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`public-form:${ip}`, 5, 300_000)) return fail("rate_limited");
+  if (!(await rateLimit(`public-form:${ip}`, 5, 300_000))) return fail("rate_limited");
 
   // The site must exist and be published before accepting anything.
   const siteRows = await db
