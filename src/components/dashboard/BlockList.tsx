@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Button, Card, EmptyState, IconButton } from "@/components/ui";
+import { Badge, Button, EmptyState, IconButton } from "@/components/ui";
 import { getBlockDef } from "@/lib/blocks";
 import type { Messages } from "@/i18n/messages";
 import type { BuilderBlock } from "./PageBuilder";
@@ -29,7 +29,7 @@ export default function BlockList({
   onAdd: () => void;
 }) {
   return (
-    <Card className="p-3">
+    <div className="rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-sm">
       {blocks.length === 0 ? (
         <EmptyState
           title={t.pages.noBlocks}
@@ -106,6 +106,6 @@ export default function BlockList({
           + {t.pages.addBlock}
         </button>
       )}
-    </Card>
+    </div>
   );
 }

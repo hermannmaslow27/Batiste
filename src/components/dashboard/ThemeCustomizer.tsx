@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, CardBody, CardHeader, Field } from "@/components/ui";
+import { Button, Card, CardBody, CardHeader, Collapsible, Field } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { ThemeOverrideValues } from "./theme/types";
 import { GOOGLE_FONTS, RADIUS_OPTIONS } from "./theme/types";
@@ -30,13 +30,14 @@ export default function ThemeCustomizer({
   return (
     <Card>
       <CardHeader title="Personnaliser les couleurs & polices" />
-      <CardBody className="space-y-6">
-        <ThemePreviewMini overrides={overrides} />
+      <CardBody className="space-y-0 p-0">
+        {/* Preview — always visible */}
+        <div className="border-b border-zinc-100 px-5 py-4">
+          <ThemePreviewMini overrides={overrides} />
+        </div>
 
-        <div>
-          <p className="text-[12px] uppercase tracking-wider text-zinc-400 font-semibold mb-3">
-            Couleurs
-          </p>
+        {/* ─── Couleurs ─── */}
+        <Collapsible title="Couleurs" variant="card" defaultOpen>
           <div className="space-y-3">
             <ColorSwatch label="Couleur principale" value={overrides.colorPrimary} onChange={set("colorPrimary")} />
             <ColorSwatch label="Texte sur principal" value={overrides.colorOnPrimary} onChange={set("colorOnPrimary")} />
@@ -47,12 +48,10 @@ export default function ThemeCustomizer({
             <ColorSwatch label="Bordure" value={overrides.colorBorder} onChange={set("colorBorder")} />
             <ColorSwatch label="Accent" value={overrides.colorAccent} onChange={set("colorAccent")} />
           </div>
-        </div>
+        </Collapsible>
 
-        <div>
-          <p className="text-[12px] uppercase tracking-wider text-zinc-400 font-semibold mb-3">
-            Typographies
-          </p>
+        {/* ─── Typographies ─── */}
+        <Collapsible title="Typographies" variant="card" defaultOpen={false}>
           <div className="space-y-3">
             <Field label="Police des titres">
               <select
@@ -81,12 +80,10 @@ export default function ThemeCustomizer({
               </select>
             </Field>
           </div>
-        </div>
+        </Collapsible>
 
-        <div>
-          <p className="text-[12px] uppercase tracking-wider text-zinc-400 font-semibold mb-3">
-            Arrondi des coins
-          </p>
+        {/* ─── Arrondis ─── */}
+        <Collapsible title="Arrondi des coins" variant="card" defaultOpen={false}>
           <div className="flex flex-wrap gap-2">
             {RADIUS_OPTIONS.map(({ label, value }) => (
               <button
@@ -105,9 +102,10 @@ export default function ThemeCustomizer({
               </button>
             ))}
           </div>
-        </div>
+        </Collapsible>
 
-        <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-100">
+        {/* ─── Save / Reset ─── */}
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-100 px-5 py-4">
           <Button variant="ghost" onClick={reset} disabled={pending}>
             Réinitialiser
           </Button>

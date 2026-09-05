@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Layers, SlidersHorizontal, Trash2 } from "lucide-react";
 import {
   Badge,
+  Collapsible,
   Field,
   ImageUpload,
   Input,
@@ -183,11 +184,11 @@ export default function BlockInspector({
     styleFields.length > 0 && activeTab === "style" ? styleFields : contentFields;
 
   return (
-    <div className="space-y-3.5">
-      {/* Block title and badge */}
+    <div className="space-y-3">
+      {/* ─── Block header ─── */}
       <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
         <div>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
             {t.pages.properties}
           </span>
           <h3 className="text-sm font-bold text-zinc-900">
@@ -197,7 +198,7 @@ export default function BlockInspector({
         <Badge>Actif</Badge>
       </div>
 
-      {/* Tabs if style fields exist */}
+      {/* ─── Tab switcher (if style fields exist) ─── */}
       {styleFields.length > 0 && (
         <div className="flex rounded-xl border border-zinc-200/80 bg-zinc-100 p-1">
           <button
@@ -222,13 +223,13 @@ export default function BlockInspector({
             }`}
           >
             <SlidersHorizontal className="size-3.5" />
-            Style & Options ({styleFields.length})
+            Style ({styleFields.length})
           </button>
         </div>
       )}
 
-      {/* Scrollable fields container */}
-      <div className="scroll-slim max-h-[60vh] space-y-3.5 overflow-y-auto pr-1">
+      {/* ─── Fields (collapsible per section) ─── */}
+      <div className="scroll-slim max-h-[58vh] space-y-3 overflow-y-auto pr-1">
         {fieldsToRender.map((field) =>
           renderField(field, block.content[field.key], (next) =>
             onChange({ ...block.content, [field.key]: next }),
@@ -236,8 +237,14 @@ export default function BlockInspector({
         )}
       </div>
 
+      {/* ─── Danger zone ─── */}
       {onDelete && (
-        <div className="border-t border-zinc-100 pt-3">
+        <Collapsible
+          title="Actions"
+          variant="panel"
+          defaultOpen={false}
+          className="border-t border-zinc-100 pt-2"
+        >
           <button
             type="button"
             onClick={onDelete}
@@ -246,7 +253,7 @@ export default function BlockInspector({
             <Trash2 className="size-3.5" />
             Supprimer ce bloc
           </button>
-        </div>
+        </Collapsible>
       )}
     </div>
   );

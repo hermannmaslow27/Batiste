@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { PanelLeft, PanelRight, Sparkles } from "lucide-react";
 import { addBlockAction, updatePageAction } from "@/actions/content";
-import { Card, EmptyState, Button } from "@/components/ui";
+import { EmptyState, Button } from "@/components/ui";
 import type { PublicProduct } from "@/components/site/BlockView";
 import { useI18n } from "@/i18n/client";
 import BlockInspector from "./BlockInspector";
@@ -13,6 +13,7 @@ import { NewPageModal, PageSettingsModal } from "./PageBuilderModals";
 import { usePageBuilderState } from "./builder/usePageBuilderState";
 import StudioTopBar from "./builder/StudioTopBar";
 import StudioCanvas from "./builder/StudioCanvas";
+import { cn } from "@/lib/utils";
 
 export interface BuilderBlock {
   id: string;
@@ -58,6 +59,10 @@ export default function PageBuilder({
   const [newPageOpen, setNewPageOpen] = useState(false);
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false);
 
+  // Collapsible panel state
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+
   const {
     language,
     visiblePages,
@@ -87,8 +92,8 @@ export default function PageBuilder({
   });
 
   return (
-    <div className="space-y-4">
-      {/* ───────────────── STUDIO TOP CONTROL BAR ───────────────── */}
+    <div className="space-y-3">
+      {/* ─── STUDIO TOP BAR ─── */}
       <StudioTopBar
         activePage={activePage}
         pages={pages}
@@ -120,43 +125,62 @@ export default function PageBuilder({
         }}
       />
 
-      {/* ───────────────── STUDIO WORKSPACE GRID ───────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_340px]">
-        {/* LEFT COLUMN: Block Outline Hierarchy */}
-        <div className="space-y-4">
-          <Card className="p-3">
-            <div className="mb-2.5 flex items-center justify-between px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Arborescence ({blocks.length})
-              </span>
+      {/* ─── WORKSPACE ─── */}
+      <div className="flex min-h-[75vh] gap-3">
+        {/* ─── LEFT PANEL: Block Outline ─── */}
+        <div
+          className={cn(
+            "flex flex-col transition-all duration-200 shrink-0",
+            leftPanelOpen ? "w-60" : "w-10",
+          )}
+        >
+          <div className="flex items-center justify-between px-1 mb-1">
+            <button
+              type="button"
+              onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+              title={leftPanelOpen ? "Masquer l'arborescence" : "Afficher l'arborescence"}
+              className="flex items-center gap-1.5 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition"
+            >
+              <PanelLeft className="size-4" />
+              {leftPanelOpen && (
+                <span className="text-[11px] font-semibold uppercase tracking-wide">
+                  Blocs ({blocks.length})
+                </span>
+              )}
+            </button>
+            {leftPanelOpen && (
               <button
                 type="button"
                 onClick={() => setLibraryOpen(true)}
-                className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-950 transition"
+                className="text-[11px] font-semibold text-zinc-600 hover:text-zinc-950 transition px-1"
               >
                 + Ajouter
               </button>
-            </div>
+            )}
+          </div>
 
-            <BlockList
-              blocks={blocks}
-              selectedBlockId={selectedBlockId}
-              t={t}
-              onSelect={setSelectedBlockId}
-              onDragStart={(index) => {
-                dragIndex.current = index;
-              }}
-              onDrop={drop}
-              onAdd={() => setLibraryOpen(true)}
-              onToggle={toggle}
-              onDuplicate={duplicate}
-              onDelete={remove}
-            />
-          </Card>
+          {leftPanelOpen && (
+            <div className="flex-1 overflow-y-auto">
+              <BlockList
+                blocks={blocks}
+                selectedBlockId={selectedBlockId}
+                t={t}
+                onSelect={setSelectedBlockId}
+                onDragStart={(index) => {
+                  dragIndex.current = index;
+                }}
+                onDrop={drop}
+                onAdd={() => setLibraryOpen(true)}
+                onToggle={toggle}
+                onDuplicate={duplicate}
+                onDelete={remove}
+              />
+            </div>
+          )}
         </div>
 
-        {/* CENTER COLUMN: Responsive Canvas */}
-        <main className="min-w-0">
+        {/* ─── CENTER COLUMN: Canvas ─── */}
+        <main className="min-w-0 flex-1">
           {activePage ? (
             <StudioCanvas
               activePage={activePage}
@@ -187,34 +211,58 @@ export default function PageBuilder({
           )}
         </main>
 
-        {/* RIGHT COLUMN: Tabbed Block Inspector */}
-        <div className="space-y-4">
-          <Card className="p-4 lg:sticky lg:top-28">
-            {selectedBlock ? (
-              <BlockInspector
-                key={selectedBlock.id}
-                block={selectedBlock}
-                siteId={siteId}
-                t={t}
-                onChange={(content) => patchContent(selectedBlock.id, content)}
-                onDelete={() => remove(selectedBlock)}
-              />
-            ) : (
-              <div className="py-16 text-center">
-                <Sparkles className="mx-auto size-7 text-zinc-300 mb-3" />
-                <p className="text-xs font-semibold text-zinc-700">
-                  Sélectionnez un bloc
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-400 px-4">
-                  Cliquez sur n'importe quel bloc dans la page pour modifier ses textes, ses images ou son style.
-                </p>
-              </div>
-            )}
-          </Card>
+        {/* ─── RIGHT PANEL: Inspector ─── */}
+        <div
+          className={cn(
+            "flex flex-col transition-all duration-200 shrink-0",
+            rightPanelOpen ? "w-80" : "w-10",
+          )}
+        >
+          <div className="flex items-center justify-end px-1 mb-1">
+            <button
+              type="button"
+              onClick={() => setRightPanelOpen(!rightPanelOpen)}
+              title={rightPanelOpen ? "Masquer l'inspecteur" : "Afficher l'inspecteur"}
+              className="flex items-center gap-1.5 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition"
+            >
+              {rightPanelOpen && (
+                <span className="text-[11px] font-semibold uppercase tracking-wide">
+                  Inspecteur
+                </span>
+              )}
+              <PanelRight className="size-4" />
+            </button>
+          </div>
+
+          {rightPanelOpen && (
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm">
+              {selectedBlock ? (
+                <BlockInspector
+                  key={selectedBlock.id}
+                  block={selectedBlock}
+                  siteId={siteId}
+                  t={t}
+                  onChange={(content) => patchContent(selectedBlock.id, content)}
+                  onDelete={() => remove(selectedBlock)}
+                />
+              ) : (
+                <div className="py-16 text-center">
+                  <Sparkles className="mx-auto size-7 text-zinc-300 mb-3" />
+                  <p className="text-xs font-semibold text-zinc-700">
+                    Sélectionnez un bloc
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-zinc-400 px-4">
+                    Cliquez sur n'importe quel bloc dans la page pour modifier
+                    ses textes, ses images ou son style.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ───────────────── MODALS ───────────────── */}
+      {/* ─── MODALS ─── */}
       <BlockLibrary
         open={libraryOpen}
         onClose={() => setLibraryOpen(false)}
