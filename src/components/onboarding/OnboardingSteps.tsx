@@ -154,7 +154,7 @@ export function WizardActions({
       <Button variant="ghost" onClick={onBack} disabled={step === 1 || pending}>
         {back}
       </Button>
-      {step < 3 ? (
+      {step < 4 ? (
         <Button onClick={onNext} disabled={!canContinue}>
           {next}
         </Button>

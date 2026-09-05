@@ -136,7 +136,7 @@ summary {
   transform: scale(0.97);
 }
 
-/* Dashboard card hover lift */
+/* Dashboard card hover lift & modern shadows */
 .dash-card-hover {
   transition:
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
@@ -145,14 +145,25 @@ summary {
 }
 .dash-card-hover:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 32px -16px rgba(24, 24, 27, 0.35);
+  box-shadow: 0 16px 36px -16px rgba(24, 24, 27, 0.25);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(228, 228, 231, 0.7);
+}
+
+.gradient-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(120, 119, 198, 0.15), transparent 70%);
 }
 
 .dashboard-grid {
   background-image:
-    linear-gradient(to right, rgba(24, 24, 27, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(24, 24, 27, 0.035) 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(to right, rgba(24, 24, 27, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 24, 27, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -164,3 +175,4 @@ summary {
     transition-duration: 0.01ms !important;
   }
 }
+

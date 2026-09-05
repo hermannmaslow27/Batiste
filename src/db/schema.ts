@@ -107,6 +107,7 @@ export const sites = sqliteTable(
     seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
     seoImage: text("seo_image"),
+    navbarConfig: text("navbar_config", { mode: "json" }),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`),

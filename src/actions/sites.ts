@@ -3,12 +3,13 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
-import { featureFlags, pages, siteMembers, sites } from "@/db/schema";
+import { blocks, featureFlags, pages, siteMembers, sites } from "@/db/schema";
 import { assertSiteAccess, getUser } from "@/lib/guards";
 import { FEATURES, slugify } from "@/lib/utils";
 import { LOCALES } from "@/i18n/messages";
 import { ensureThemesSeeded } from "@/lib/theme-seed";
+import { getTemplateById } from "@/lib/templates";
+import { db } from "@/db";
 
 export type ActionResult<T = undefined> =
   | ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T }))
@@ -25,7 +26,8 @@ function revalidateSite(subdomain: string) {
 
 const createSiteSchema = z.object({
   name: z.string().trim().min(2).max(200),
-  themeId: z.enum(["minimal", "warm", "corporate", "bold"]),
+  themeId: z.string().min(1),
+  templateId: z.string().optional(),
   defaultLanguage: z.enum(LOCALES),
 });
 
@@ -71,26 +73,69 @@ export async function createSiteAction(
     .insert(siteMembers)
     .values({ siteId: site.id, userId: user.id, role: "owner" });
 
+  const template = parsed.data.templateId
+    ? getTemplateById(parsed.data.templateId)
+    : null;
+
   await db
     .insert(featureFlags)
     .values(
       FEATURES.map((feature) => ({
         siteId: site.id,
         feature,
-        isEnabled: feature !== "booking",
+        isEnabled:
+          feature === "booking"
+            ? Boolean(
+              template?.pages.some((p) =>
+                p.blocks.some((b) => b.type === "booking_form"),
+              ),
+            )
+            : true,
       })),
     );
 
-  await db.insert(pages).values({
-    siteId: site.id,
-    slug: "",
-    language: parsed.data.defaultLanguage,
-    title: parsed.data.defaultLanguage === "fr" ? "Accueil" : "Home",
-    status: "draft",
-    isHomepage: true,
-    sortOrder: 0,
-    seoTitle: parsed.data.name,
-  });
+  if (template && template.pages.length > 0) {
+    for (let pageIdx = 0; pageIdx < template.pages.length; pageIdx++) {
+      const tPage = template.pages[pageIdx];
+      const [insertedPage] = await db
+        .insert(pages)
+        .values({
+          siteId: site.id,
+          slug: tPage.slug,
+          language: parsed.data.defaultLanguage,
+          title: tPage.title,
+          status: "published",
+          isHomepage: tPage.isHomepage,
+          sortOrder: pageIdx,
+          seoTitle: `${parsed.data.name} · ${tPage.title}`,
+        })
+        .returning();
+
+      if (tPage.blocks && tPage.blocks.length > 0) {
+        for (let blockIdx = 0; blockIdx < tPage.blocks.length; blockIdx++) {
+          const tBlock = tPage.blocks[blockIdx];
+          await db.insert(blocks).values({
+            pageId: insertedPage.id,
+            type: tBlock.type,
+            position: blockIdx,
+            content: tBlock.content,
+            isVisible: true,
+          });
+        }
+      }
+    }
+  } else {
+    await db.insert(pages).values({
+      siteId: site.id,
+      slug: "",
+      language: parsed.data.defaultLanguage,
+      title: parsed.data.defaultLanguage === "fr" ? "Accueil" : "Home",
+      status: "draft",
+      isHomepage: true,
+      sortOrder: 0,
+      seoTitle: parsed.data.name,
+    });
+  }
 
   revalidatePath("/", "layout");
   return { ok: true, data: { siteId: site.id } };
@@ -99,7 +144,7 @@ export async function createSiteAction(
 const settingsSchema = z.object({
   siteId: z.string().uuid(),
   name: z.string().trim().min(2).max(200),
-  themeId: z.enum(["minimal", "warm", "corporate", "bold"]),
+  themeId: z.string().min(1),
   defaultLanguage: z.enum(LOCALES),
   supportedLanguages: z.array(z.enum(LOCALES)).min(1),
   seoTitle: z.string().trim().max(200).optional().nullable(),

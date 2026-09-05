@@ -74,7 +74,7 @@ export default function SettingsForm({
       const result = await updateSiteSettingsAction({
         siteId: site.id,
         name: form.name.trim(),
-        themeId: form.themeId as "minimal" | "warm" | "corporate" | "bold",
+        themeId: form.themeId,
         defaultLanguage: form.defaultLanguage,
         supportedLanguages: form.supportedLanguages,
         seoTitle: form.seoTitle || null,
@@ -147,32 +147,39 @@ export default function SettingsForm({
           <CardHeader title={t.settings.theme} />{" "}
           <CardBody>
             {" "}
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {DEFAULT_THEMES.map((theme) => (
                 <button
                   key={theme.id}
                   onClick={() => setForm({ ...form, themeId: theme.id })}
                   className={cn(
-                    "overflow-hidden rounded-xl border-2 text-left transition",
+                    "relative overflow-hidden rounded-xl border-2 text-left transition-all",
                     form.themeId === theme.id
-                      ? "border-zinc-900"
+                      ? "border-zinc-900 shadow-md ring-2 ring-zinc-900/10"
                       : "border-zinc-200 hover:border-zinc-300",
                   )}
                 >
                   {" "}
                   <div
-                    className="flex h-14 items-end gap-1 p-2"
-                    style={{ backgroundColor: theme.colors.surface }}
+                    className="relative flex h-14 items-end gap-1 p-2"
+                    style={{ backgroundColor: theme.colors.background }}
                   >
+                    <div className="absolute top-1.5 left-2 right-2 h-1.5 rounded-full opacity-50" style={{ backgroundColor: theme.colors.surface }} />
+                    <div className="absolute top-4 left-2 h-1 w-1/2 rounded-full opacity-40" style={{ backgroundColor: theme.colors.text }} />
                     {theme.swatch.map((color) => (
                       <span
                         key={color}
-                        className="size-4 rounded ring-1 ring-black/5"
+                        className="size-3.5 rounded-full ring-1 ring-black/5"
                         style={{ backgroundColor: color }}
                       />
                     ))}{" "}
+                    {form.themeId === theme.id && (
+                      <div className="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-zinc-900 text-[9px] text-white">
+                        ✓
+                      </div>
+                    )}
                   </div>{" "}
-                  <p className="px-2.5 py-2 text-[12.5px] font-medium">
+                  <p className="px-2.5 py-1.5 text-[11.5px] font-semibold text-zinc-900 truncate">
                     {theme.name}
                   </p>
                 </button>

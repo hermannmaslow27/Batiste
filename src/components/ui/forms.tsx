@@ -36,7 +36,7 @@ export function Field({
   );
 }
 const base =
-  "w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm transition focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/5 disabled:bg-zinc-50 disabled:text-zinc-400";
+  "w-full rounded-xl border border-zinc-200/90 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow] focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/10 disabled:bg-zinc-50 disabled:text-zinc-400";
 export function Input({
   className,
   ...props
@@ -82,14 +82,14 @@ export function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+        "relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2",
         checked ? "bg-zinc-900" : "bg-zinc-300",
       )}
     >
       <span
         className={cn(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform",
-          checked ? "translate-x-[-22px]" : "translate-x-0.5",
+          "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
+          checked ? "translate-x-5.5" : "translate-x-0.5",
         )}
       />
     </button>

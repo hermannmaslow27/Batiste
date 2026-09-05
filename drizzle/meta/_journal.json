@@ -8,6 +8,13 @@
       "when": 1788522320518,
       "tag": "0000_tricky_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788554154810,
+      "tag": "0001_oval_gwen_stacy",
+      "breakpoints": true
     }
   ]
 }

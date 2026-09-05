@@ -1,13 +1,10 @@
 import Link from "next/link";
-import { eq, sql } from "drizzle-orm";
-import { db } from "@/db";
-import { formSubmissions, pages, siteMembers, sites } from "@/db/schema";
-import { requireUser } from "@/lib/guards";
-import { getMessages, normalizeLocale } from "@/i18n/messages";
-import { getThemeConfig } from "@/lib/themes";
+import { getDashboardData } from "@/actions/dashboard";
 import { Badge } from "@/components/ui";
 import SignOutButton from "@/components/dashboard/SignOutButton";
 import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
+import { getMessages, normalizeLocale } from "@/i18n/messages";
+import { getThemeConfig } from "@/lib/themes";
 
 export default async function SitesPage({
   params,
@@ -17,33 +14,8 @@ export default async function SitesPage({
   const { locale: rawLocale } = await params;
   const locale = normalizeLocale(rawLocale);
   const t = getMessages(locale);
-  const user = await requireUser(locale);
 
-  const memberships = await db
-    .select({ site: sites, role: siteMembers.role })
-    .from(siteMembers)
-    .innerJoin(sites, eq(siteMembers.siteId, sites.id))
-    .where(eq(siteMembers.userId, user.id));
-
-  const stats = await Promise.all(
-    memberships.map(async ({ site }) => {
-      const [pageCount] = await db
-        .select({ value: sql<number>`count(*)::int` })
-        .from(pages)
-        .where(eq(pages.siteId, site.id));
-      const [unread] = await db
-        .select({
-          value: sql<number>`count(*) filter (where status = 'new')::int`,
-        })
-        .from(formSubmissions)
-        .where(eq(formSubmissions.siteId, site.id));
-      return {
-        siteId: site.id,
-        pages: pageCount?.value ?? 0,
-        unread: unread?.value ?? 0,
-      };
-    }),
-  );
+  const { user, memberships, stats } = await getDashboardData(locale);
 
   return (
     <div className="min-h-screen bg-zinc-50">

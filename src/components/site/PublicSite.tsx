@@ -10,6 +10,7 @@ import {
   featureFlags,
   pages,
   products,
+  siteThemeOverrides,
   sites,
   themes,
 } from "@/db/schema";
@@ -25,6 +26,9 @@ import {
 import { trackPageView } from "@/actions/analytics";
 import AnalyticsTracker from "@/components/site/AnalyticsTracker";
 import CatalogClient from "@/components/site/CatalogClient";
+import PublicHeader from "@/components/site/PublicHeader";
+import PublicFooter from "@/components/site/PublicFooter";
+import type { NavbarConfig } from "@/actions/navigation";
 
 const ROOT_DOMAINS = ["batiste.app", "lvh.me", "localhost"];
 
@@ -41,9 +45,10 @@ function safeImageUrl(url: string | null | undefined): string | null {
 
 async function loadSite(subdomain: string) {
   const rows = await db
-    .select({ site: sites, theme: themes })
+    .select({ site: sites, theme: themes, overrides: siteThemeOverrides })
     .from(sites)
     .innerJoin(themes, eq(sites.themeId, themes.id))
+    .leftJoin(siteThemeOverrides, eq(sites.id, siteThemeOverrides.siteId))
     .where(eq(sites.subdomain, subdomain))
     .limit(1);
   return rows[0] ?? null;
@@ -256,97 +261,27 @@ export default async function PublicSite({
   const currentPath = `/${route}`;
 
   return (
-    <div className="site-root min-h-screen" style={themeStyle(theme)}>
+    <div className="site-root min-h-screen" style={themeStyle(theme, data.overrides)}>
       {/* Tracker analytics côté client — ne bloque pas le rendu */}
       <AnalyticsTracker subdomain={subdomain} path={currentPath} />
 
       {/* Nav */}
-      <header
-        className="site-surface sticky top-0 z-40 border-b"
-        style={{ borderColor: "var(--c-border)" }}
-      >
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-4">
-          <Link
-            href={href("")}
-            className="flex items-center gap-2 site-heading text-[17px] font-semibold"
-          >
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                alt={site.name}
-                width={32}
-                height={32}
-                className="h-8 w-auto object-contain"
-              />
-            ) : (
-              site.name
-            )}
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13.5px]">
-            {navPages.map((page) => (
-              <Link
-                key={page.id}
-                href={href(page.slug)}
-                className="transition hover:opacity-70"
-                style={{
-                  color:
-                    currentPage?.id === page.id
-                      ? "var(--c-primary)"
-                      : "var(--c-muted)",
-                }}
-              >
-                {page.title}
-              </Link>
-            ))}
-            {features.blog && (
-              <Link
-                href={href("blog")}
-                className="transition hover:opacity-70"
-                style={{
-                  color: isBlog ? "var(--c-primary)" : "var(--c-muted)",
-                }}
-              >
-                Blog
-              </Link>
-            )}
-            {features.catalog && (
-              <Link
-                href={href("catalog")}
-                className="transition hover:opacity-70"
-                style={{
-                  color: isCatalog ? "var(--c-primary)" : "var(--c-muted)",
-                }}
-              >
-                {t.catalog.title}
-              </Link>
-            )}
-          </nav>
-          {supported.length > 1 && (
-            <div className="ml-auto flex items-center gap-1 text-[12px]">
-              {supported.map((code, index) => {
-                const target = languageTargets[index];
-                return (
-                  <Link
-                    key={code}
-                    href={target || "/"}
-                    className="rounded-md px-2 py-1 uppercase transition"
-                    style={{
-                      background:
-                        code === language ? "var(--c-primary)" : "transparent",
-                      color:
-                        code === language
-                          ? "var(--c-on-primary)"
-                          : "var(--c-muted)",
-                    }}
-                  >
-                    {code}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </header>
+      <PublicHeader
+        siteName={site.name}
+        logoUrl={logoUrl}
+        navPages={navPages}
+        currentPageId={currentPage?.id}
+        isBlog={isBlog}
+        isCatalog={isCatalog}
+        showBlog={Boolean(features.blog)}
+        showCatalog={Boolean(features.catalog)}
+        navbarConfig={site.navbarConfig as NavbarConfig | null}
+        href={href}
+        supportedLanguages={supported}
+        languageTargets={languageTargets}
+        currentLanguage={language}
+        catalogTitle={t.catalog.title}
+      />
 
       {/* Main */}
       <main>
@@ -470,15 +405,7 @@ export default async function PublicSite({
       </main>
 
       {/* Footer */}
-      <footer
-        className="site-surface border-t px-6 py-10 text-center text-[13px]"
-        style={{ borderColor: "var(--c-border)", color: "var(--c-muted)" }}
-      >
-        <p>
-          &copy; {new Date().getFullYear()} {site.name} &ndash;{" "}
-          {t.publicSite.poweredBy} Batiste
-        </p>
-      </footer>
+      <PublicFooter siteName={site.name} poweredByText={t.publicSite.poweredBy} />
     </div>
   );
 }
