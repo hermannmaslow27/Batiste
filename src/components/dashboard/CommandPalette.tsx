@@ -1,32 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Compass,
-  FileText,
-  Globe2,
-  Inbox,
-  LayoutDashboard,
-  Palette,
-  Plus,
-  Search,
-  Settings,
-  ShoppingBag,
-  Sparkles,
-  X,
-} from "lucide-react";
-import { BLOCK_REGISTRY, BLOCK_TYPES, type BlockType } from "@/lib/blocks";
+import { Search, X } from "lucide-react";
+import type { BlockType } from "@/lib/blocks";
 import { useI18n } from "@/i18n/client";
-
-interface CommandItem {
-  id: string;
-  label: string;
-  category: "pages" | "navigation" | "blocks" | "actions";
-  icon: React.ReactNode;
-  hint?: string;
-  onSelect: () => void;
-}
+import { useCommandItems } from "@/hooks/useCommandItems";
 
 export default function CommandPalette({
   siteId,
@@ -47,10 +25,18 @@ export default function CommandPalette({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
   const { t } = useI18n();
 
-  const base = `/${locale}/dashboard/${siteId}`;
+  const items = useCommandItems({
+    siteId,
+    locale,
+    subdomain,
+    pages,
+    t,
+    onClose: () => setOpen(false),
+    onAddBlock,
+    onNewPage,
+  });
 
   // Keyboard shortcut listener: Cmd+K / Ctrl+K
   useEffect(() => {
@@ -74,123 +60,6 @@ export default function CommandPalette({
     }
   }, [open]);
 
-  // Build commands list
-  const items: CommandItem[] = [
-    // Pages
-    ...pages.map((p) => ({
-      id: `page-${p.id}`,
-      label: p.title,
-      category: "pages" as const,
-      icon: <FileText className="size-4 text-zinc-500" />,
-      hint: `/${p.slug}`,
-      onSelect: () => {
-        router.push(`${base}/pages`);
-        setOpen(false);
-      },
-    })),
-    // Navigation
-    {
-      id: "nav-overview",
-      label: "Tableau de bord (Vue d'ensemble)",
-      category: "navigation" as const,
-      icon: <LayoutDashboard className="size-4 text-zinc-500" />,
-      onSelect: () => {
-        router.push(base);
-        setOpen(false);
-      },
-    },
-    {
-      id: "nav-pages",
-      label: "Pages & Éditeur",
-      category: "navigation" as const,
-      icon: <FileText className="size-4 text-zinc-500" />,
-      onSelect: () => {
-        router.push(`${base}/pages`);
-        setOpen(false);
-      },
-    },
-    {
-      id: "nav-theme",
-      label: "Thème & Design visuel",
-      category: "navigation" as const,
-      icon: <Palette className="size-4 text-zinc-500" />,
-      onSelect: () => {
-        router.push(`${base}/theme`);
-        setOpen(false);
-      },
-    },
-    {
-      id: "nav-navigation",
-      label: "Navigation & Menus du site",
-      category: "navigation" as const,
-      icon: <Compass className="size-4 text-zinc-500" />,
-      onSelect: () => {
-        router.push(`${base}/navigation`);
-        setOpen(false);
-      },
-    },
-    {
-      id: "nav-inbox",
-      label: "Boîte de réception & Messages",
-      category: "navigation" as const,
-      icon: <Inbox className="size-4 text-zinc-500" />,
-      onSelect: () => {
-        router.push(`${base}/inbox`);
-        setOpen(false);
-      },
-    },
-    {
-      id: "nav-settings",
-      label: "Paramètres du site",
-      category: "navigation" as const,
-      icon: <Settings className="size-4 text-zinc-500" />,
-      onSelect: () => {
-        router.push(`${base}/settings`);
-        setOpen(false);
-      },
-    },
-    // Blocks
-    ...(onAddBlock
-      ? BLOCK_TYPES.map((type) => ({
-          id: `block-${type}`,
-          label: `Insérer bloc : ${t.blocks[type] ?? type}`,
-          category: "blocks" as const,
-          icon: <Sparkles className="size-4 text-zinc-500" />,
-          hint: BLOCK_REGISTRY[type]?.icon,
-          onSelect: () => {
-            onAddBlock(type);
-            setOpen(false);
-          },
-        }))
-      : []),
-    // Quick Actions
-    ...(onNewPage
-      ? [
-          {
-            id: "action-new-page",
-            label: "Créer une nouvelle page",
-            category: "actions" as const,
-            icon: <Plus className="size-4 text-emerald-600" />,
-            onSelect: () => {
-              onNewPage();
-              setOpen(false);
-            },
-          },
-        ]
-      : []),
-    {
-      id: "action-view-site",
-      label: "Voir le site public en direct",
-      category: "actions" as const,
-      icon: <Globe2 className="size-4 text-blue-600" />,
-      hint: `${subdomain}.batiste.app`,
-      onSelect: () => {
-        window.open(`/s/${subdomain}`, "_blank");
-        setOpen(false);
-      },
-    },
-  ];
-
   const filtered = query.trim()
     ? items.filter(
         (i) =>
@@ -199,7 +68,6 @@ export default function CommandPalette({
       )
     : items;
 
-  // Key navigation in list
   const handleKeyInDialog = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();

@@ -1,19 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import {
-  AlignCenter,
-  AlignLeft,
-  BadgeAlert,
-  Layers,
-  SlidersHorizontal,
-  Trash2,
-} from "lucide-react";
+import { Layers, SlidersHorizontal, Trash2 } from "lucide-react";
 import {
   Badge,
-  Button,
   Field,
-  IconButton,
   ImageUpload,
   Input,
   Select,
@@ -23,6 +14,8 @@ import {
 import { getBlockDef, type FieldDef } from "@/lib/blocks";
 import type { Messages } from "@/i18n/messages";
 import type { BuilderBlock } from "./PageBuilder";
+import AlignmentControl from "./inspector/AlignmentControl";
+import ListFieldManager from "./inspector/ListFieldManager";
 
 const STYLE_FIELD_KEYS = [
   "alignment",
@@ -58,45 +51,17 @@ export default function BlockInspector({
   ): React.ReactNode => {
     const label = t.fields[field.labelKey] ?? field.key;
 
-    // Special alignment control: segmented button
     if (field.key === "alignment") {
-      const currentVal = String(value ?? "center");
       return (
-        <div key={prefix + field.key} className="space-y-1.5 py-1">
-          <label className="block text-[12px] font-semibold text-zinc-700">
-            {label}
-          </label>
-          <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 w-full">
-            <button
-              type="button"
-              onClick={() => update("left")}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
-                currentVal === "left"
-                  ? "bg-white text-zinc-900 shadow-xs"
-                  : "text-zinc-500 hover:text-zinc-900"
-              }`}
-            >
-              <AlignLeft className="size-3.5" />
-              Gauche
-            </button>
-            <button
-              type="button"
-              onClick={() => update("center")}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition ${
-                currentVal === "center"
-                  ? "bg-white text-zinc-900 shadow-xs"
-                  : "text-zinc-500 hover:text-zinc-900"
-              }`}
-            >
-              <AlignCenter className="size-3.5" />
-              Centré
-            </button>
-          </div>
-        </div>
+        <AlignmentControl
+          key={prefix + field.key}
+          label={label}
+          value={value}
+          onChange={update}
+        />
       );
     }
 
-    // Special styleVariant control
     if (field.key === "styleVariant") {
       return (
         <Field key={prefix + field.key} label={label}>
@@ -187,96 +152,16 @@ export default function BlockInspector({
         ? (value as Record<string, unknown>[])
         : [];
       return (
-        <div key={prefix + field.key} className="space-y-2 pt-1">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-1.5">
-            <span className="text-[13px] font-semibold text-zinc-800">
-              {label} ({items.length})
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() =>
-                update([
-                  ...items,
-                  Object.fromEntries(
-                    (field.itemFields ?? []).map((item) => [item.key, ""]),
-                  ),
-                ])
-              }
-            >
-              + {t.pages.addItem}
-            </Button>
-          </div>
-          <div className="space-y-2.5">
-            {items.map((item, index) => (
-              <div
-                key={index}
-                className="rounded-xl border border-zinc-200/90 bg-zinc-50/80 p-3.5 transition hover:border-zinc-300"
-              >
-                <div className="mb-2.5 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    {t.pages.item} {index + 1}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <IconButton
-                      label={t.pages.moveUp}
-                      disabled={index === 0}
-                      onClick={() => {
-                        const next = [...items];
-                        [next[index - 1], next[index]] = [
-                          next[index],
-                          next[index - 1],
-                        ];
-                        update(next);
-                      }}
-                    >
-                      ↑
-                    </IconButton>
-                    <IconButton
-                      label={t.pages.moveDown}
-                      disabled={index === items.length - 1}
-                      onClick={() => {
-                        const next = [...items];
-                        [next[index + 1], next[index]] = [
-                          next[index],
-                          next[index + 1],
-                        ];
-                        update(next);
-                      }}
-                    >
-                      ↓
-                    </IconButton>
-                    <IconButton
-                      label={t.common.delete}
-                      onClick={() =>
-                        update(items.filter((_, current) => current !== index))
-                      }
-                    >
-                      ✕
-                    </IconButton>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  {(field.itemFields ?? []).map((sub) =>
-                    renderField(
-                      sub,
-                      item[sub.key],
-                      (next) =>
-                        update(
-                          items.map((current, currentIndex) =>
-                            currentIndex === index
-                              ? { ...current, [sub.key]: next }
-                              : current,
-                          ),
-                        ),
-                      `${prefix}${field.key}-${index}-`,
-                    ),
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ListFieldManager
+          key={prefix + field.key}
+          field={field}
+          items={items}
+          label={label}
+          prefix={prefix}
+          t={t}
+          onUpdate={update}
+          renderSubField={renderField}
+        />
       );
     }
 

@@ -1,5 +1,8 @@
 import Image from "next/image";
-import { type BlockProps, str, safeUrl, blockHref } from "./types";
+import { type BlockProps, str, safeUrl } from "./types";
+import { getHeroVariantStyles } from "./hero/heroStyles";
+import HeroButtons from "./hero/HeroButtons";
+import HeroRating from "./hero/HeroRating";
 
 export default function HeroBlock({ content, ctx }: BlockProps) {
   const align = str(content.alignment, "center");
@@ -13,34 +16,19 @@ export default function HeroBlock({ content, ctx }: BlockProps) {
   const ratingText = str(content.ratingText, "4.9/5 avis clients vérifiés");
   const variant = str(content.styleVariant, "default");
 
-  const getVariantStyles = () => {
-    if (image) return { color: "#ffffff" };
-    switch (variant) {
-      case "dark":
-        return { background: "#09090b", color: "#fafafa" };
-      case "gradient":
-        return {
-          background:
-            "linear-gradient(135deg, var(--c-surface, #f4f4f5) 0%, var(--c-bg, #ffffff) 100%)",
-        };
-      case "surface":
-        return { background: "var(--c-surface, #f4f4f5)" };
-      default:
-        return { background: "var(--c-bg, #ffffff)" };
-    }
-  };
-
   const isDark = variant === "dark" || Boolean(image);
+  const variantStyles = getHeroVariantStyles(variant, Boolean(image));
 
   return (
     <section
       className="relative overflow-hidden transition-colors duration-300"
-      style={getVariantStyles()}
+      style={variantStyles}
     >
-      {/* Ambient background glow for dark/gradient variants */}
+      {/* Ambient background glow for dark variant */}
       {variant === "dark" && !image && (
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(120,119,198,0.25),transparent)]" />
       )}
+
       {image && (
         <Image
           src={image}
@@ -51,6 +39,7 @@ export default function HeroBlock({ content, ctx }: BlockProps) {
           priority
         />
       )}
+
       {image && content.overlay !== false && (
         <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px]" />
       )}
@@ -96,50 +85,22 @@ export default function HeroBlock({ content, ctx }: BlockProps) {
           </p>
         )}
 
-        {(buttonText || secondaryButtonText) && (
-          <div
-            data-anim="scale"
-            data-delay="0.2"
-            className={`mt-9 flex flex-wrap items-center gap-3.5 ${
-              align === "left" ? "" : "justify-center"
-            }`}
-          >
-            {buttonText && (
-              <a
-                href={blockHref(buttonUrl, ctx.publicPrefix)}
-                className="site-button inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold shadow-md transition hover:scale-[1.03] active:scale-[0.98]"
-              >
-                {buttonText}
-              </a>
-            )}
-            {secondaryButtonText && (
-              <a
-                href={blockHref(secondaryButtonUrl, ctx.publicPrefix)}
-                className={`inline-flex items-center justify-center rounded-xl border px-6 py-3.5 text-sm font-semibold transition hover:scale-[1.02] active:scale-[0.98] ${
-                  isDark
-                    ? "border-white/25 bg-white/5 text-white hover:bg-white/15"
-                    : "border-zinc-300 bg-white text-zinc-800 shadow-xs hover:border-zinc-400 hover:bg-zinc-50"
-                }`}
-              >
-                {secondaryButtonText}
-              </a>
-            )}
-          </div>
-        )}
+        <HeroButtons
+          buttonText={buttonText}
+          buttonUrl={buttonUrl}
+          secondaryButtonText={secondaryButtonText}
+          secondaryButtonUrl={secondaryButtonUrl}
+          publicPrefix={ctx.publicPrefix}
+          isDark={isDark}
+          align={align}
+        />
 
         {showRating && ratingText && (
-          <div
-            data-anim="fade"
-            data-delay="0.25"
-            className={`mt-10 flex items-center gap-2.5 text-xs ${
-              isDark ? "text-zinc-300" : "text-zinc-500"
-            } ${align === "left" ? "" : "justify-center"}`}
-          >
-            <span className="flex text-amber-400 font-bold tracking-widest text-[13px]">
-              ★★★★★
-            </span>
-            <span className="font-medium tracking-tight">{ratingText}</span>
-          </div>
+          <HeroRating
+            ratingText={ratingText}
+            isDark={isDark}
+            align={align}
+          />
         )}
       </div>
     </section>
