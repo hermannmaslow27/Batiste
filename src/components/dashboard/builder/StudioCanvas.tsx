@@ -1,9 +1,13 @@
+"use client";
+
+import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   Copy,
   Eye,
   EyeOff,
+  MoreVertical,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -14,6 +18,7 @@ import { themeStyle } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import type { BuilderBlock, BuilderPage } from "../PageBuilder";
 import type { DeviceMode } from "./usePageBuilderState";
+import BlockDetailsModal from "./BlockDetailsModal";
 
 export default function StudioCanvas({
   activePage,
@@ -48,6 +53,11 @@ export default function StudioCanvas({
   onRemoveBlock: (block: BuilderBlock) => void;
   onOpenLibrary: () => void;
 }) {
+  const [modalIndex, setModalIndex] = useState<number | null>(null);
+
+  const activeModalBlock =
+    modalIndex !== null ? blocks[modalIndex] ?? null : null;
+
   return (
     <div className="flex justify-center">
       <div
@@ -90,6 +100,8 @@ export default function StudioCanvas({
             blocks.map((block, index) => {
               const isSelected = selectedBlockId === block.id;
               const isHidden = !block.isVisible;
+              const blockName =
+                t.blocks[block.type as keyof typeof t.blocks] ?? block.type;
 
               return (
                 <div
@@ -103,19 +115,45 @@ export default function StudioCanvas({
                     isHidden && "opacity-40 grayscale",
                   )}
                 >
-                  {/* Floating block control toolbar on hover / select */}
+                  {/* Top-Left: Clear Block Type Label & 3-dots trigger */}
                   <div
                     className={cn(
-                      "absolute right-3 top-3 z-30 items-center gap-1 rounded-xl bg-zinc-900/90 px-2 py-1 text-white shadow-xl backdrop-blur-md transition-opacity duration-150",
+                      "absolute left-3 top-3 z-30 items-center gap-1.5 rounded-xl bg-zinc-900/95 px-2.5 py-1 text-white shadow-xl backdrop-blur-md transition-opacity duration-150",
                       isSelected
                         ? "flex opacity-100"
                         : "hidden group-hover:flex opacity-90",
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="text-[11px] font-bold px-1.5 text-zinc-300">
-                      {t.blocks[block.type as keyof typeof t.blocks] ?? block.type}
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      #{index + 1}
                     </span>
+                    <span className="text-[12px] font-bold text-white">
+                      {blockName}
+                    </span>
+                    <span className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[9.5px] text-zinc-300">
+                      {block.type}
+                    </span>
+                    <button
+                      type="button"
+                      title="Afficher les détails du bloc"
+                      onClick={() => setModalIndex(index)}
+                      className="ml-1 rounded-md p-0.5 hover:bg-white/20 text-zinc-300 hover:text-white transition"
+                    >
+                      <MoreVertical className="size-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Top-Right: Floating quick controls toolbar */}
+                  <div
+                    className={cn(
+                      "absolute right-3 top-3 z-30 items-center gap-1 rounded-xl bg-zinc-900/95 px-2 py-1 text-white shadow-xl backdrop-blur-md transition-opacity duration-150",
+                      isSelected
+                        ? "flex opacity-100"
+                        : "hidden group-hover:flex opacity-90",
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       type="button"
                       title="Monter ce bloc"
@@ -156,6 +194,14 @@ export default function StudioCanvas({
                     </button>
                     <button
                       type="button"
+                      title="Détails du bloc (3 points)"
+                      onClick={() => setModalIndex(index)}
+                      className="rounded-md p-1 hover:bg-white/20 text-zinc-300 hover:text-white"
+                    >
+                      <MoreVertical className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       title="Supprimer"
                       onClick={() => onRemoveBlock(block)}
                       className="rounded-md p-1 hover:bg-red-500/80 text-red-300"
@@ -184,6 +230,30 @@ export default function StudioCanvas({
           )}
         </div>
       </div>
+
+      {/* Block Details Modal triggered by 3 dots */}
+      {activeModalBlock && modalIndex !== null && (
+        <BlockDetailsModal
+          block={activeModalBlock}
+          index={modalIndex}
+          totalBlocks={blocks.length}
+          open={modalIndex !== null}
+          onClose={() => setModalIndex(null)}
+          onSelectInspector={() => onSelectBlock(activeModalBlock.id)}
+          onMoveUp={
+            modalIndex > 0 ? () => onMoveBlock(modalIndex, "up") : undefined
+          }
+          onMoveDown={
+            modalIndex < blocks.length - 1
+              ? () => onMoveBlock(modalIndex, "down")
+              : undefined
+          }
+          onDuplicate={() => onDuplicateBlock(activeModalBlock)}
+          onToggle={() => onToggleBlock(activeModalBlock)}
+          onDelete={() => onRemoveBlock(activeModalBlock)}
+          t={t}
+        />
+      )}
     </div>
   );
 }

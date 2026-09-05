@@ -174,6 +174,7 @@ export default function PageBuilder({
                 onToggle={toggle}
                 onDuplicate={duplicate}
                 onDelete={remove}
+                onMove={moveBlock}
               />
             </div>
           )}

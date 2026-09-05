@@ -90,8 +90,18 @@ export default function TemplatePicker({
                 <p className="mt-0.5 text-[12px] leading-snug text-zinc-500 line-clamp-2">
                   {template.tagline}
                 </p>
+                {/* Pages included */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center rounded-md bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {template.pages.length} pages incluses
+                  </span>
+                  <span className="text-[11px] text-zinc-500 truncate max-w-[200px]">
+                    {template.pages.map((p) => p.title).join(" · ")}
+                  </span>
+                </div>
+
                 {/* Tags */}
-                <div className="mt-2.5 flex flex-wrap gap-1">
+                <div className="mt-2 flex flex-wrap gap-1">
                   {template.tags.slice(0, 3).map((tag) => (
                     <span
                       key={tag}

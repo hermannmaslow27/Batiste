@@ -183,19 +183,37 @@ export default function BlockInspector({
   const fieldsToRender =
     styleFields.length > 0 && activeTab === "style" ? styleFields : contentFields;
 
+  const blockDesc =
+    t.blocks[`${block.type}Desc` as keyof typeof t.blocks] ??
+    "Personnalisez les propriétés et le contenu de ce bloc.";
+
   return (
     <div className="space-y-3">
-      {/* ─── Block header ─── */}
-      <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-        <div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            {t.pages.properties}
-          </span>
-          <h3 className="text-sm font-bold text-zinc-900">
-            {t.blocks[block.type as keyof typeof t.blocks] ?? block.type}
-          </h3>
+      {/* ─── Block Identity Header ─── */}
+      <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3">
+        <div className="flex items-start gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white shadow-xs">
+            {getBlockDef(block.type)?.icon ?? "▪"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="text-[13px] font-bold text-zinc-900">
+                {t.blocks[block.type as keyof typeof t.blocks] ?? block.type}
+              </h3>
+              <span className="font-mono text-[9.5px] text-zinc-500 bg-white border border-zinc-200 rounded px-1">
+                {block.type}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-zinc-500 leading-snug">
+              {blockDesc}
+            </p>
+          </div>
+          <Badge tone={block.isVisible ? "success" : "neutral"}>
+            <span className="text-[10px]">
+              {block.isVisible ? "Visible" : "Masqué"}
+            </span>
+          </Badge>
         </div>
-        <Badge>Actif</Badge>
       </div>
 
       {/* ─── Tab switcher (if style fields exist) ─── */}
